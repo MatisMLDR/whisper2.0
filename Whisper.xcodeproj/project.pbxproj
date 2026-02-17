@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19FFB3CD2F35F81A0030D49A /* CoreML.framework */; };
+		19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 19FFB3D02F3605840030D49A /* WhisperKit */; };
 		AAA000001 /* WhisperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000010 /* WhisperApp.swift */; };
 		AAA000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000011 /* AppState.swift */; };
 		AAA000003 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000012 /* MenuBarView.swift */; };
@@ -20,9 +22,20 @@
 		BBB000001 /* SoundService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000010 /* SoundService.swift */; };
 		BBB000002 /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000011 /* HistoryService.swift */; };
 		BBB000003 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000012 /* HistoryView.swift */; };
+		CCC000001 /* TranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000010 /* TranscriptionProvider.swift */; };
+		CCC000002 /* TranscriptionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000011 /* TranscriptionMode.swift */; };
+		CCC000003 /* LocalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000012 /* LocalModel.swift */; };
+		CCC000004 /* OpenAITranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000013 /* OpenAITranscriptionProvider.swift */; };
+		CCC000005 /* ParakeetTranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000014 /* ParakeetTranscriptionProvider.swift */; };
+		CCC000006 /* LocalModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000015 /* LocalModelManager.swift */; };
+		CCC000007 /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000016 /* AudioConverter.swift */; };
+		DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000013 /* WhisperKitTranscriptionProvider.swift */; };
+		DDD000014 /* LocalAudioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000015 /* LocalAudioModel.swift */; };
+		DDD000016 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000017 /* LocalModelProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		19FFB3CD2F35F81A0030D49A /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		AAA000010 /* WhisperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperApp.swift; sourceTree = "<group>"; };
 		AAA000011 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		AAA000012 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -39,6 +52,16 @@
 		BBB000010 /* SoundService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundService.swift; sourceTree = "<group>"; };
 		BBB000011 /* HistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
 		BBB000012 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		CCC000010 /* TranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionProvider.swift; sourceTree = "<group>"; };
+		CCC000011 /* TranscriptionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionMode.swift; sourceTree = "<group>"; };
+		CCC000012 /* LocalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModel.swift; sourceTree = "<group>"; };
+		CCC000013 /* OpenAITranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAITranscriptionProvider.swift; sourceTree = "<group>"; };
+		CCC000014 /* ParakeetTranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriptionProvider.swift; sourceTree = "<group>"; };
+		CCC000015 /* LocalModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelManager.swift; sourceTree = "<group>"; };
+		CCC000016 /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
+		DDD000013 /* WhisperKitTranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperKitTranscriptionProvider.swift; sourceTree = "<group>"; };
+		DDD000015 /* LocalAudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioModel.swift; sourceTree = "<group>"; };
+		DDD000017 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,12 +69,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */,
+				19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		19FFB3CC2F35F81A0030D49A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				19FFB3CD2F35F81A0030D49A /* CoreML.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AAA00001E /* Whisper */ = {
 			isa = PBXGroup;
 			children = (
@@ -60,6 +93,9 @@
 				AAA00001F /* Views */,
 				AAA000020 /* Services */,
 				AAA000021 /* Helpers */,
+				CCC000017 /* Protocols */,
+				CCC000018 /* Models */,
+				CCC000019 /* Providers */,
 				AAA00001A /* Info.plist */,
 				AAA00001B /* Whisper.entitlements */,
 			);
@@ -85,6 +121,9 @@
 				AAA000017 /* TextInjector.swift */,
 				BBB000010 /* SoundService.swift */,
 				BBB000011 /* HistoryService.swift */,
+				CCC000015 /* LocalModelManager.swift */,
+				CCC000016 /* AudioConverter.swift */,
+				DDD000017 /* LocalModelProvider.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -106,12 +145,41 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AAA000023 /* Root */ = {
+		AAA000023 = {
 			isa = PBXGroup;
 			children = (
 				AAA00001E /* Whisper */,
+				19FFB3CC2F35F81A0030D49A /* Frameworks */,
 				AAA000022 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		CCC000017 /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				CCC000010 /* TranscriptionProvider.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		CCC000018 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				CCC000011 /* TranscriptionMode.swift */,
+				CCC000012 /* LocalModel.swift */,
+				DDD000015 /* LocalAudioModel.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		CCC000019 /* Providers */ = {
+			isa = PBXGroup;
+			children = (
+				CCC000013 /* OpenAITranscriptionProvider.swift */,
+				CCC000014 /* ParakeetTranscriptionProvider.swift */,
+				DDD000013 /* WhisperKitTranscriptionProvider.swift */,
+			);
+			path = Providers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -157,7 +225,10 @@
 				fr,
 				Base,
 			);
-			mainGroup = AAA000023 /* Root */;
+			mainGroup = AAA000023;
+			packageReferences = (
+				19FFB3CF2F3605840030D49A /* XCRemoteSwiftPackageReference "WhisperKit" */,
+			);
 			productRefGroup = AAA000022 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -195,6 +266,16 @@
 				BBB000001 /* SoundService.swift in Sources */,
 				BBB000002 /* HistoryService.swift in Sources */,
 				BBB000003 /* HistoryView.swift in Sources */,
+				CCC000001 /* TranscriptionProvider.swift in Sources */,
+				CCC000002 /* TranscriptionMode.swift in Sources */,
+				CCC000003 /* LocalModel.swift in Sources */,
+				CCC000004 /* OpenAITranscriptionProvider.swift in Sources */,
+				CCC000005 /* ParakeetTranscriptionProvider.swift in Sources */,
+				CCC000006 /* LocalModelManager.swift in Sources */,
+				CCC000007 /* AudioConverter.swift in Sources */,
+				DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */,
+				DDD000014 /* LocalAudioModel.swift in Sources */,
+				DDD000016 /* LocalModelProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,6 +473,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		19FFB3CF2F3605840030D49A /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		19FFB3D02F3605840030D49A /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 19FFB3CF2F3605840030D49A /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AAA000028 /* Project object */;
 }
