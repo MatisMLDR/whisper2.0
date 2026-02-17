@@ -84,8 +84,8 @@ struct LocalModel: LocalAudioModel, Hashable {
         }
     }
 
-    /// Liste des fichiers CoreML requis pour le modèle Parakeet
-    static let parakeetRequiredFiles = [
+    /// Liste des bundles CoreML requis pour le modèle Parakeet
+    static let parakeetRequiredBundles = [
         "ParakeetDecoder.mlmodelc",
         "Preprocessor.mlmodelc",
         "JointDecisionv2.mlmodelc",
@@ -94,22 +94,34 @@ struct LocalModel: LocalAudioModel, Hashable {
         "ParakeetEncoder_15s.mlmodelc"
     ]
 
-    /// Vérifie si tous les fichiers CoreML sont téléchargés
+    /// Fichiers internes requis dans chaque bundle .mlmodelc
+    static let mlmodelcInternalFiles = [
+        "coremldata.bin",
+        "model.mil",
+        "analytics/coremldata.bin",
+        "weights/weight.bin"
+    ]
+
+    /// Vérifie si tous les bundles CoreML sont téléchargés avec leurs fichiers internes
     private func areAllCoreMLFilesDownloaded() -> Bool {
         guard providerType == .coreML else { return false }
 
-        let requiredFiles: [String]
+        let requiredBundles: [String]
         switch id {
         case "parakeet-tdt-0.6b-v3":
-            requiredFiles = Self.parakeetRequiredFiles
+            requiredBundles = Self.parakeetRequiredBundles
         default:
             return false
         }
 
         guard let modelDir = getCoreMLModelDirectory() else { return false }
 
-        return requiredFiles.allSatisfy { fileName in
-            FileManager.default.fileExists(atPath: modelDir.appendingPathComponent(fileName).path)
+        // Vérifier que chaque bundle contient tous les fichiers internes
+        return requiredBundles.allSatisfy { bundleName in
+            Self.mlmodelcInternalFiles.allSatisfy { internalFile in
+                let fullPath = modelDir.appendingPathComponent(bundleName).appendingPathComponent(internalFile)
+                return FileManager.default.fileExists(atPath: fullPath.path)
+            }
         }
     }
 

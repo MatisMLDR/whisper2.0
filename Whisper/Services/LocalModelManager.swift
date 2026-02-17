@@ -35,7 +35,10 @@ final class LocalModelManager: NSObject, ObservableObject {
 
     // URLs de téléchargement HuggingFace pour les fichiers CoreML
     // Format: https://huggingface.co/{org}/{repo}/resolve/main/{filename}
-    private let parakeetFiles = [
+    // NOTE: .mlmodelc files are directories containing multiple files
+
+    // Les 6 bundles de modèle Parakeet
+    private let parakeetBundles = [
         "ParakeetDecoder.mlmodelc",
         "Preprocessor.mlmodelc",
         "JointDecisionv2.mlmodelc",
@@ -43,6 +46,21 @@ final class LocalModelManager: NSObject, ObservableObject {
         "RNNTJoint.mlmodelc",
         "ParakeetEncoder_15s.mlmodelc"
     ]
+
+    // Fichiers internes de chaque bundle .mlmodelc
+    private let mlmodelcInternalFiles = [
+        "coremldata.bin",
+        "model.mil",
+        "analytics/coremldata.bin",
+        "weights/weight.bin"
+    ]
+
+    // Liste plate de tous les fichiers à télécharger
+    private var parakeetFiles: [String] {
+        parakeetBundles.flatMap { bundle in
+            mlmodelcInternalFiles.map { file in "\(bundle)/\(file)" }
+        }
+    }
 
     // Nombre de fichiers téléchargés pour le modèle Parakeet
     @Published var parakeetFilesDownloaded: Int = 0
@@ -85,12 +103,19 @@ final class LocalModelManager: NSObject, ObservableObject {
     }
 
     private func refreshModelStates() {
-        // Compter les fichiers Parakeet téléchargés
+        // Compter les bundles Parakeet complets (tous les fichiers internes présents)
         if let modelDir = getParakeetModelDirectory() {
-            let downloadedCount = parakeetFiles.filter { fileName in
-                FileManager.default.fileExists(atPath: modelDir.appendingPathComponent(fileName).path)
-            }.count
-            parakeetFilesDownloaded = downloadedCount
+            var completeBundles = 0
+            for bundle in parakeetBundles {
+                let bundleComplete = mlmodelcInternalFiles.allSatisfy { internalFile in
+                    let fullPath = modelDir.appendingPathComponent(bundle).appendingPathComponent(internalFile)
+                    return FileManager.default.fileExists(atPath: fullPath.path)
+                }
+                if bundleComplete {
+                    completeBundles += 1
+                }
+            }
+            parakeetFilesDownloaded = completeBundles
         }
         objectWillChange.send()
     }
@@ -104,16 +129,15 @@ final class LocalModelManager: NSObject, ObservableObject {
         errorMessage = nil
         downloadError[model.id] = nil
 
+        let allFiles = parakeetFiles
+        let totalFiles = allFiles.count
+
         // Lancer le téléchargement de tous les fichiers
-        for fileName in parakeetFiles {
-            let fileURL = URL(string: "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml/resolve/main/\(fileName)")!
+        for filePath in allFiles {
+            let fileURL = URL(string: "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml/resolve/main/\(filePath)")!
 
-            var request = URLRequest(url: fileURL)
-            request.httpMethod = "HEAD"
-
-            // Vérifier si le fichier existe déjà
             let task = urlSession.downloadTask(with: fileURL)
-            downloadTasks[task] = (model.id, fileName)
+            downloadTasks[task] = (model.id, filePath)
         }
 
         isDownloading[model.id] = true
@@ -144,23 +168,23 @@ final class LocalModelManager: NSObject, ObservableObject {
     }
 
     func getReadyModel() -> LocalModel? {
-        if parakeetFilesDownloaded == parakeetFiles.count {
+        if parakeetFilesDownloaded == parakeetBundles.count {
             return models.first { $0.id == "parakeet-tdt-0.6b-v3" }
         }
         return nil
     }
 
-    /// Retourne les chemins vers les fichiers du modèle Parakeet
+    /// Retourne les chemins vers les bundles du modèle Parakeet
     func getParakeetModelPaths() -> [String: URL]? {
-        guard parakeetFilesDownloaded == parakeetFiles.count,
+        guard parakeetFilesDownloaded == parakeetBundles.count,
               let modelDir = getParakeetModelDirectory() else {
             return nil
         }
 
         var paths: [String: URL] = [:]
-        for fileName in parakeetFiles {
-            let nameWithoutExt = fileName.replacingOccurrences(of: ".mlmodelc", with: "")
-            paths[nameWithoutExt] = modelDir.appendingPathComponent(fileName)
+        for bundleName in parakeetBundles {
+            let nameWithoutExt = bundleName.replacingOccurrences(of: ".mlmodelc", with: "")
+            paths[nameWithoutExt] = modelDir.appendingPathComponent(bundleName)
         }
         return paths
     }
@@ -170,7 +194,7 @@ final class LocalModelManager: NSObject, ObservableObject {
 
 extension LocalModelManager: URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let (modelId, fileName) = downloadTasks[downloadTask] else { return }
+        guard let (modelId, filePath) = downloadTasks[downloadTask] else { return }
 
         guard let modelDir = getParakeetModelDirectory() else {
             Task { @MainActor in
@@ -181,13 +205,19 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             return
         }
 
-        let destinationURL = modelDir.appendingPathComponent(fileName)
+        let destinationURL = modelDir.appendingPathComponent(filePath)
 
         do {
-            // Vérifier la taille du fichier
+            // Vérifier la taille du fichier (minimum 100 bytes pour les petits fichiers de métadonnées)
             let attrs = try FileManager.default.attributesOfItem(atPath: location.path)
-            guard let fileSize = attrs[.size] as? UInt64, fileSize > 1_000_000 else {
-                throw NSError(domain: "Download", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fichier téléchargé invalide"])
+            guard let fileSize = attrs[.size] as? UInt64, fileSize > 100 else {
+                throw NSError(domain: "Download", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fichier téléchargé invalide (\(fileSize) bytes)"])
+            }
+
+            // Créer les sous-répertoires si nécessaire
+            let destinationDir = destinationURL.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: destinationDir.path) {
+                try FileManager.default.createDirectory(at: destinationDir, withIntermediateDirectories: true)
             }
 
             // Déplacer le fichier
@@ -197,11 +227,11 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             try FileManager.default.moveItem(at: location, to: destinationURL)
 
             // Mettre à jour le compteur
+            completedFiles += 1
             refreshModelStates()
-            completedFiles = parakeetFilesDownloaded
 
             // Vérifier si tous les fichiers sont téléchargés
-            if parakeetFilesDownloaded == parakeetFiles.count {
+            if parakeetFilesDownloaded == parakeetBundles.count {
                 Task { @MainActor in
                     isDownloading[modelId] = false
                     downloadProgress[modelId] = 1.0
@@ -210,7 +240,10 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             }
 
         } catch {
-            print("Erreur lors du téléchargement de \(fileName): \(error)")
+            print("Erreur lors du téléchargement de \(filePath): \(error)")
+            Task { @MainActor in
+                downloadError[modelId] = "Erreur téléchargement \(filePath): \(error.localizedDescription)"
+            }
         }
 
         downloadTasks.removeValue(forKey: downloadTask)
@@ -224,7 +257,8 @@ extension LocalModelManager: URLSessionDownloadDelegate {
         let currentFileProgress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
 
         // Progression globale = (fichiers terminés + progression fichier actuel) / total fichiers
-        let overallProgress = (Double(completedFiles) + currentFileProgress) / Double(parakeetFiles.count)
+        let totalFiles = parakeetBundles.count * mlmodelcInternalFiles.count
+        let overallProgress = (Double(completedFiles) + currentFileProgress) / Double(totalFiles)
 
         Task { @MainActor in
             downloadProgress[modelId] = min(overallProgress, 1.0)
