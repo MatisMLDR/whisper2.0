@@ -214,7 +214,7 @@ extension LocalModel {
             LocalModel(
                 id: "parakeet-tdt-0.6b-v3",
                 name: "Parakeet TDT 0.6B v3",
-                description: "Modèle NVIDIA multilingue ultra-rapide. Nécessite 7 fichiers CoreML.",
+                description: "Modèle NVIDIA multilingue ultra-rapide. 6 fichiers CoreML (~620 MB).",
                 downloadURL: URL(string: "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml")!,
                 fileSize: "~620 MB",
                 providerType: .coreML,
