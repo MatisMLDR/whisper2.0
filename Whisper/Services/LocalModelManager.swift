@@ -210,7 +210,8 @@ extension LocalModelManager: URLSessionDownloadDelegate {
         do {
             // Vérifier la taille du fichier (minimum 100 bytes pour les petits fichiers de métadonnées)
             let attrs = try FileManager.default.attributesOfItem(atPath: location.path)
-            guard let fileSize = attrs[.size] as? UInt64, fileSize > 100 else {
+            let fileSize = (attrs[.size] as? UInt64) ?? 0
+            guard fileSize > 100 else {
                 throw NSError(domain: "Download", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fichier téléchargé invalide (\(fileSize) bytes)"])
             }
 
