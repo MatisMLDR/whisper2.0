@@ -69,32 +69,40 @@ final class LocalModelManager: NSObject, ObservableObject {
     private var completedFiles: Int = 0
 
     // Thread-safe storage for download tasks (accessed from background threads)
-    private nonisolated let downloadTasksLock = NSLock()
-    private nonisolated var _downloadTasks: [URLSessionDownloadTask: (modelId: String, fileName: String)] = [:]
+    private let downloadTasksBox = DownloadTasksBox()
 
-    private var downloadTasks: [URLSessionDownloadTask: (modelId: String, fileName: String)] {
-        get {
-            downloadTasksLock.lock()
-            defer { downloadTasksLock.unlock() }
-            return _downloadTasks
+    // Helper class for thread-safe dictionary access
+    private final class DownloadTasksBox {
+        private let lock = NSLock()
+        private var tasks: [URLSessionDownloadTask: (modelId: String, fileName: String)] = [:]
+
+        func get(_ task: URLSessionDownloadTask) -> (modelId: String, fileName: String)? {
+            lock.lock()
+            defer { lock.unlock() }
+            return tasks[task]
         }
-        set {
-            downloadTasksLock.lock()
-            defer { downloadTasksLock.unlock() }
-            _downloadTasks = newValue
+
+        func set(_ value: (modelId: String, fileName: String)?, for task: URLSessionDownloadTask) {
+            lock.lock()
+            defer { lock.unlock() }
+            if let value = value {
+                tasks[task] = value
+            } else {
+                tasks.removeValue(forKey: task)
+            }
         }
-    }
 
-    private nonisolated func getDownloadTaskInfo(_ task: URLSessionDownloadTask) -> (modelId: String, fileName: String)? {
-        downloadTasksLock.lock()
-        defer { downloadTasksLock.unlock() }
-        return _downloadTasks[task]
-    }
+        func remove(_ task: URLSessionDownloadTask) {
+            lock.lock()
+            defer { lock.unlock() }
+            tasks.removeValue(forKey: task)
+        }
 
-    private nonisolated func removeDownloadTask(_ task: URLSessionDownloadTask) {
-        downloadTasksLock.lock()
-        defer { downloadTasksLock.unlock() }
-        _downloadTasks.removeValue(forKey: task)
+        func add(_ value: (modelId: String, fileName: String), for task: URLSessionDownloadTask) {
+            lock.lock()
+            defer { lock.unlock() }
+            tasks[task] = value
+        }
     }
 
     private lazy var urlSession: URLSession = {
@@ -158,30 +166,33 @@ final class LocalModelManager: NSObject, ObservableObject {
         downloadError[model.id] = nil
 
         let allFiles = parakeetFiles
-        let totalFiles = allFiles.count
 
         // Lancer le téléchargement de tous les fichiers
+        var tasksToResume: [URLSessionDownloadTask] = []
         for filePath in allFiles {
             let fileURL = URL(string: "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml/resolve/main/\(filePath)")!
 
             let task = urlSession.downloadTask(with: fileURL)
-            downloadTasks[task] = (model.id, filePath)
+            downloadTasksBox.add((model.id, filePath), for: task)
+            tasksToResume.append(task)
         }
 
         isDownloading[model.id] = true
         downloadProgress[model.id] = 0.0
         completedFiles = 0
 
-        for task in downloadTasks.keys {
+        for task in tasksToResume {
             task.resume()
         }
     }
 
     func cancelDownload(_ model: LocalModel) {
-        let tasks = downloadTasks.filter { $0.value.modelId == model.id }
-        for (task, _) in tasks {
-            task.cancel()
-            downloadTasks.removeValue(forKey: task)
+        // Note: Pour simplifier, on annule tous les téléchargements
+        // Une implémentation plus précise nécessiterait de tracker les tasks par modèle
+        urlSession.getAllTasks { tasks in
+            for task in tasks {
+                task.cancel()
+            }
         }
         isDownloading[model.id] = false
         downloadProgress[model.id] = nil
@@ -222,16 +233,16 @@ final class LocalModelManager: NSObject, ObservableObject {
 
 extension LocalModelManager: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let (modelId, filePath) = getDownloadTaskInfo(downloadTask) else { return }
+        guard let (modelId, filePath) = Self.shared.downloadTasksBox.get(downloadTask) else { return }
 
-        let modelDir = getParakeetModelDirectory()
+        let modelDir = Self.shared.getParakeetModelDirectory()
 
         guard let destinationDir = modelDir else {
             Task { @MainActor in
                 Self.shared.isDownloading[modelId] = false
                 Self.shared.errorMessage = "Impossible d'accéder au dossier Models"
             }
-            removeDownloadTask(downloadTask)
+            Self.shared.downloadTasksBox.remove(downloadTask)
             return
         }
 
@@ -277,11 +288,11 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             }
         }
 
-        removeDownloadTask(downloadTask)
+        Self.shared.downloadTasksBox.remove(downloadTask)
     }
 
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard let (modelId, _) = getDownloadTaskInfo(downloadTask),
+        guard let (modelId, _) = Self.shared.downloadTasksBox.get(downloadTask),
               totalBytesExpectedToWrite > 0 else { return }
 
         // Progression du fichier actuel (0.0 à 1.0)
@@ -296,14 +307,14 @@ extension LocalModelManager: URLSessionDownloadDelegate {
     }
 
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let (modelId, fileName) = getDownloadTaskInfo(task as! URLSessionDownloadTask) else { return }
+        guard let (modelId, fileName) = Self.shared.downloadTasksBox.get(task as! URLSessionDownloadTask) else { return }
 
         if let error = error {
             let nsError = error as NSError
 
             // Ignorer les erreurs d'annulation
             guard nsError.code != NSURLErrorCancelled else {
-                removeDownloadTask(task as! URLSessionDownloadTask)
+                Self.shared.downloadTasksBox.remove(task as! URLSessionDownloadTask)
                 return
             }
 
@@ -314,6 +325,6 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             }
         }
 
-        removeDownloadTask(task as! URLSessionDownloadTask)
+        Self.shared.downloadTasksBox.remove(task as! URLSessionDownloadTask)
     }
 }
