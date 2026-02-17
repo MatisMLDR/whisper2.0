@@ -286,18 +286,42 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
         } else {
-            // Bouton télécharger
-            Button(action: {
-                appState.localModelProvider.downloadModel(model)
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "icloud.and.arrow.down")
-                        .font(.system(size: 12))
-                    Text("Télécharger")
-                        .font(.system(size: 11, weight: .medium))
+            // Bouton télécharger + erreur éventuelle
+            VStack(alignment: .leading, spacing: 4) {
+                Button(action: {
+                    appState.localModelProvider.downloadModel(model)
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "icloud.and.arrow.down")
+                            .font(.system(size: 12))
+                        Text("Télécharger")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                }
+                .buttonStyle(RefinedButtonStyle(isPrimary: true))
+
+                // Afficher l'erreur si présente
+                if let error = appState.localModelProvider.errorMessage ??
+                               LocalModelManager.shared.downloadError[model.id] {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        Button("Réessayer") {
+                            LocalModelManager.shared.downloadError[model.id] = nil
+                            appState.localModelProvider.downloadModel(model)
+                        }
+                        .font(.system(size: 10))
+                        .buttonStyle(.plain)
+                        .foregroundColor(accentColor)
+                    }
+                    .frame(width: 120)
                 }
             }
-            .buttonStyle(RefinedButtonStyle(isPrimary: true))
         }
     }
 

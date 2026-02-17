@@ -30,6 +30,9 @@ final class LocalModelManager: NSObject, ObservableObject {
     /// Message d'erreur si téléchargement échoue
     @Published var errorMessage: String?
 
+    /// Erreur détaillée pour chaque modèle
+    @Published var downloadError: [String: String] = [:]
+
     // Fichiers individuels du modèle Parakeet
     private let parakeetFiles = [
         "ParakeetDecoder.mlmodelc",
@@ -98,6 +101,7 @@ final class LocalModelManager: NSObject, ObservableObject {
         guard model.id == "parakeet-tdt-0.6b-v3" else { return }
 
         errorMessage = nil
+        downloadError[model.id] = nil
 
         // Lancer le téléchargement de tous les fichiers
         for fileName in parakeetFiles {
@@ -227,18 +231,24 @@ extension LocalModelManager: URLSessionDownloadDelegate {
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let (modelId, fileName) = downloadTasks[task as! URLSessionDownloadTask] else { return }
+
         if let error = error {
             let nsError = error as NSError
+
+            // Ignorer les erreurs d'annulation
             guard nsError.code != NSURLErrorCancelled else {
-                // Trouver le modelId
-                if let (modelId, _) = downloadTasks[task as! URLSessionDownloadTask] {
-                    Task { @MainActor in
-                        isDownloading[modelId] = false
-                        errorMessage = "Erreur de téléchargement: \(error.localizedDescription)"
-                    }
-                }
+                downloadTasks.removeValue(forKey: task as! URLSessionDownloadTask)
                 return
             }
+
+            Task { @MainActor in
+                isDownloading[modelId] = false
+                downloadError[modelId] = "Erreur téléchargement \(fileName): \(error.localizedDescription)"
+                errorMessage = "Échec du téléchargement. Vérifiez votre connexion Internet."
+            }
         }
+
+        downloadTasks.removeValue(forKey: task as! URLSessionDownloadTask)
     }
 }
