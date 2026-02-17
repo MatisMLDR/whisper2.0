@@ -68,7 +68,35 @@ final class LocalModelManager: NSObject, ObservableObject {
     /// Nombre de fichiers terminés pour le téléchargement en cours
     private var completedFiles: Int = 0
 
-    private var downloadTasks: [URLSessionDownloadTask: (modelId: String, fileName: String)] = [:]
+    // Thread-safe storage for download tasks (accessed from background threads)
+    private nonisolated let downloadTasksLock = NSLock()
+    private nonisolated var _downloadTasks: [URLSessionDownloadTask: (modelId: String, fileName: String)] = [:]
+
+    private var downloadTasks: [URLSessionDownloadTask: (modelId: String, fileName: String)] {
+        get {
+            downloadTasksLock.lock()
+            defer { downloadTasksLock.unlock() }
+            return _downloadTasks
+        }
+        set {
+            downloadTasksLock.lock()
+            defer { downloadTasksLock.unlock() }
+            _downloadTasks = newValue
+        }
+    }
+
+    private nonisolated func getDownloadTaskInfo(_ task: URLSessionDownloadTask) -> (modelId: String, fileName: String)? {
+        downloadTasksLock.lock()
+        defer { downloadTasksLock.unlock() }
+        return _downloadTasks[task]
+    }
+
+    private nonisolated func removeDownloadTask(_ task: URLSessionDownloadTask) {
+        downloadTasksLock.lock()
+        defer { downloadTasksLock.unlock() }
+        _downloadTasks.removeValue(forKey: task)
+    }
+
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
@@ -95,7 +123,7 @@ final class LocalModelManager: NSObject, ObservableObject {
         }
     }
 
-    private func getParakeetModelDirectory() -> URL? {
+    private nonisolated func getParakeetModelDirectory() -> URL? {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("Whisper", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
@@ -104,20 +132,20 @@ final class LocalModelManager: NSObject, ObservableObject {
 
     private func refreshModelStates() {
         // Compter les bundles Parakeet complets (tous les fichiers internes présents)
-        if let modelDir = getParakeetModelDirectory() {
-            var completeBundles = 0
-            for bundle in parakeetBundles {
-                let bundleComplete = mlmodelcInternalFiles.allSatisfy { internalFile in
-                    let fullPath = modelDir.appendingPathComponent(bundle).appendingPathComponent(internalFile)
-                    return FileManager.default.fileExists(atPath: fullPath.path)
-                }
-                if bundleComplete {
-                    completeBundles += 1
-                }
+        guard let modelDir = getParakeetModelDirectory() else { return }
+
+        var completeBundles = 0
+        for bundle in parakeetBundles {
+            let bundleComplete = mlmodelcInternalFiles.allSatisfy { internalFile in
+                let fullPath = modelDir.appendingPathComponent(bundle).appendingPathComponent(internalFile)
+                return FileManager.default.fileExists(atPath: fullPath.path)
             }
-            parakeetFilesDownloaded = completeBundles
+            if bundleComplete {
+                completeBundles += 1
+            }
         }
-        objectWillChange.send()
+        parakeetFilesDownloaded = completeBundles
+        // Note: pas besoin de objectWillChange.send() car parakeetFilesDownloaded est @Published
     }
 
     // MARK: - Public Methods
@@ -193,19 +221,21 @@ final class LocalModelManager: NSObject, ObservableObject {
 // MARK: - URLSessionDownloadDelegate
 
 extension LocalModelManager: URLSessionDownloadDelegate {
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let (modelId, filePath) = downloadTasks[downloadTask] else { return }
+    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        guard let (modelId, filePath) = getDownloadTaskInfo(downloadTask) else { return }
 
-        guard let modelDir = getParakeetModelDirectory() else {
+        let modelDir = getParakeetModelDirectory()
+
+        guard let destinationDir = modelDir else {
             Task { @MainActor in
-                isDownloading[modelId] = false
-                errorMessage = "Impossible d'accéder au dossier Models"
+                Self.shared.isDownloading[modelId] = false
+                Self.shared.errorMessage = "Impossible d'accéder au dossier Models"
             }
-            downloadTasks.removeValue(forKey: downloadTask)
+            removeDownloadTask(downloadTask)
             return
         }
 
-        let destinationURL = modelDir.appendingPathComponent(filePath)
+        let destinationURL = destinationDir.appendingPathComponent(filePath)
 
         do {
             // Vérifier la taille du fichier (minimum 100 bytes pour les petits fichiers de métadonnées)
@@ -216,9 +246,9 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             }
 
             // Créer les sous-répertoires si nécessaire
-            let destinationDir = destinationURL.deletingLastPathComponent()
-            if !FileManager.default.fileExists(atPath: destinationDir.path) {
-                try FileManager.default.createDirectory(at: destinationDir, withIntermediateDirectories: true)
+            let parentDir = destinationURL.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: parentDir.path) {
+                try FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
             }
 
             // Déplacer le fichier
@@ -227,64 +257,63 @@ extension LocalModelManager: URLSessionDownloadDelegate {
             }
             try FileManager.default.moveItem(at: location, to: destinationURL)
 
-            // Mettre à jour le compteur
-            completedFiles += 1
-            refreshModelStates()
+            // Mettre à jour le compteur sur le MainActor
+            Task { @MainActor in
+                Self.shared.completedFiles += 1
+                Self.shared.refreshModelStates()
 
-            // Vérifier si tous les fichiers sont téléchargés
-            if parakeetFilesDownloaded == parakeetBundles.count {
-                Task { @MainActor in
-                    isDownloading[modelId] = false
-                    downloadProgress[modelId] = 1.0
-                    completedFiles = 0
+                // Vérifier si tous les fichiers sont téléchargés
+                if Self.shared.parakeetFilesDownloaded == Self.shared.parakeetBundles.count {
+                    Self.shared.isDownloading[modelId] = false
+                    Self.shared.downloadProgress[modelId] = 1.0
+                    Self.shared.completedFiles = 0
                 }
             }
 
         } catch {
             print("Erreur lors du téléchargement de \(filePath): \(error)")
             Task { @MainActor in
-                downloadError[modelId] = "Erreur téléchargement \(filePath): \(error.localizedDescription)"
+                Self.shared.downloadError[modelId] = "Erreur téléchargement \(filePath): \(error.localizedDescription)"
             }
         }
 
-        downloadTasks.removeValue(forKey: downloadTask)
+        removeDownloadTask(downloadTask)
     }
 
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard let (modelId, _) = downloadTasks[downloadTask],
+    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard let (modelId, _) = getDownloadTaskInfo(downloadTask),
               totalBytesExpectedToWrite > 0 else { return }
 
         // Progression du fichier actuel (0.0 à 1.0)
         let currentFileProgress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
 
-        // Progression globale = (fichiers terminés + progression fichier actuel) / total fichiers
-        let totalFiles = parakeetBundles.count * mlmodelcInternalFiles.count
-        let overallProgress = (Double(completedFiles) + currentFileProgress) / Double(totalFiles)
-
         Task { @MainActor in
-            downloadProgress[modelId] = min(overallProgress, 1.0)
+            // Progression globale = (fichiers terminés + progression fichier actuel) / total fichiers
+            let totalFiles = Self.shared.parakeetBundles.count * Self.shared.mlmodelcInternalFiles.count
+            let overallProgress = (Double(Self.shared.completedFiles) + currentFileProgress) / Double(totalFiles)
+            Self.shared.downloadProgress[modelId] = min(overallProgress, 1.0)
         }
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let (modelId, fileName) = downloadTasks[task as! URLSessionDownloadTask] else { return }
+    nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let (modelId, fileName) = getDownloadTaskInfo(task as! URLSessionDownloadTask) else { return }
 
         if let error = error {
             let nsError = error as NSError
 
             // Ignorer les erreurs d'annulation
             guard nsError.code != NSURLErrorCancelled else {
-                downloadTasks.removeValue(forKey: task as! URLSessionDownloadTask)
+                removeDownloadTask(task as! URLSessionDownloadTask)
                 return
             }
 
             Task { @MainActor in
-                isDownloading[modelId] = false
-                downloadError[modelId] = "Erreur téléchargement \(fileName): \(error.localizedDescription)"
-                errorMessage = "Échec du téléchargement. Vérifiez votre connexion Internet."
+                Self.shared.isDownloading[modelId] = false
+                Self.shared.downloadError[modelId] = "Erreur téléchargement \(fileName): \(error.localizedDescription)"
+                Self.shared.errorMessage = "Échec du téléchargement. Vérifiez votre connexion Internet."
             }
         }
 
-        downloadTasks.removeValue(forKey: task as! URLSessionDownloadTask)
+        removeDownloadTask(task as! URLSessionDownloadTask)
     }
 }
