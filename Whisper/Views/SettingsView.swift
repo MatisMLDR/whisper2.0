@@ -248,13 +248,32 @@ struct SettingsView: View {
     @ViewBuilder
     private func modelActions(_ model: LocalModel) -> some View {
         if appState.localModelProvider.isDownloading[model.id] == true {
-            // Progression du téléchargement
             VStack(spacing: 4) {
-                ProgressView(value: appState.localModelProvider.downloadProgress[model.id])
-                    .frame(width: 80)
-                Text("\(Int((appState.localModelProvider.downloadProgress[model.id] ?? 0) * 100))%")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.secondary)
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color.primary.opacity(0.1))
+                        .frame(width: 100, height: 8)
+
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(accentColor)
+                        .frame(width: 100 * (appState.localModelProvider.downloadProgress[model.id] ?? 0), height: 8)
+                        .animation(.linear(duration: 0.1), value: appState.localModelProvider.downloadProgress[model.id])
+                }
+
+                HStack(spacing: 4) {
+                    Text("\(Int((appState.localModelProvider.downloadProgress[model.id] ?? 0) * 100))%")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+
+                    Button(action: {
+                        appState.localModelProvider.cancelDownload(model)
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         } else if model.isReady {
             // Modèle téléchargé - bouton vert + bouton supprimer
