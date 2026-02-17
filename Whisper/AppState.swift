@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 @MainActor
 final class AppState: ObservableObject {
@@ -6,9 +7,31 @@ final class AppState: ObservableObject {
     @Published var isTranscribing = false
     @Published var lastError: String?
     @Published var hasAPIKey: Bool
+    @Published var transcriptionMode: TranscriptionMode = .api
+
+    /// Gestionnaire des modèles locaux
+    @Published var localModelProvider = LocalModelProvider.shared
+
+    /// Gestionnaire legacy pour CoreML (Parakeet)
+    @Published var localModelManager = LocalModelManager.shared
 
     let audioRecorder = AudioRecorder()
     let keyboardService = KeyboardService()
+
+    /// Provider de transcription actuel selon le mode choisi
+    var currentProvider: TranscriptionProvider {
+        switch transcriptionMode {
+        case .api:
+            return OpenAITranscriptionProvider.shared
+        case .local:
+            // Utiliser LocalModelProvider pour obtenir le bon provider
+            guard let provider = localModelProvider.currentProvider else {
+                // Fallback sur WhisperKit si aucun modèle sélectionné
+                return WhisperKitTranscriptionProvider.shared
+            }
+            return provider
+        }
+    }
 
     init() {
         hasAPIKey = KeychainHelper.shared.hasAPIKey
@@ -36,10 +59,24 @@ final class AppState: ObservableObject {
     }
 
     private func startRecording() {
-        guard hasAPIKey else {
-            lastError = "Configure ta clé API dans les préférences"
-            SoundService.shared.playErrorSound()
-            return
+        // Vérifier les prérequis selon le mode de transcription
+        if transcriptionMode == .api {
+            guard hasAPIKey else {
+                lastError = "Configure ta clé API dans les préférences"
+                SoundService.shared.playErrorSound()
+                return
+            }
+        } else {
+            // Mode local: pour WhisperKit, pas besoin de vérifier
+            // Pour CoreML, vérifier qu'un modèle est téléchargé
+            if let selectedModel = localModelProvider.selectedModel,
+               selectedModel.providerType == .coreML {
+                guard localModelManager.getReadyModel() != nil else {
+                    lastError = "Téléchargez un modèle local dans les préférences"
+                    SoundService.shared.playErrorSound()
+                    return
+                }
+            }
         }
 
         guard !isTranscribing else { return }
@@ -57,8 +94,8 @@ final class AppState: ObservableObject {
             return
         }
 
-        // Capturer l'app qui a le focus APRÈS (en parallèle de l'enregistrement)
-        TextInjector.shared.captureTargetApp()
+        // Note: La capture de l'app cible se fait maintenant automatiquement
+        // dans TextInjector.inject() au moment du collage, pas ici
     }
 
     private func stopRecordingAndTranscribe() {
@@ -77,7 +114,9 @@ final class AppState: ObservableObject {
 
         Task {
             do {
-                let text = try await TranscriptionService.shared.transcribe(audioURL: audioURL)
+                // Utiliser le provider actuel
+                let text = try await currentProvider.transcribe(audioURL: audioURL)
+
                 await MainActor.run {
                     // Sauvegarder dans l'historique
                     HistoryService.shared.add(text)
@@ -99,7 +138,7 @@ final class AppState: ObservableObject {
     }
 
     func updateAPIKey(_ key: String) async -> Bool {
-        let isValid = await TranscriptionService.shared.validateAPIKey(key)
+        let isValid = await OpenAITranscriptionProvider.shared.validateAPIKey(key)
         await MainActor.run {
             if isValid {
                 _ = KeychainHelper.shared.save(apiKey: key)
