@@ -33,7 +33,8 @@ final class LocalModelManager: NSObject, ObservableObject {
     /// Erreur détaillée pour chaque modèle
     @Published var downloadError: [String: String] = [:]
 
-    // Fichiers individuels du modèle Parakeet
+    // URLs de téléchargement HuggingFace pour les fichiers CoreML
+    // Format: https://huggingface.co/{org}/{repo}/resolve/main/{filename}
     private let parakeetFiles = [
         "ParakeetDecoder.mlmodelc",
         "Preprocessor.mlmodelc",
