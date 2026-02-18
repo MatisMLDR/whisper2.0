@@ -201,9 +201,16 @@ final class LocalModelProvider: ObservableObject {
     private func downloadCoreMLModel(_ model: LocalModel) async {
         downloadErrors[model.id] = nil
 
-        // Utiliser FluidAudio SDK pour télécharger
         do {
-            // Progression simulée pendant le téléchargement SDK
+            // Si déjà téléchargé, juste initialiser
+            if model.isReady {
+                downloadProgress[model.id] = 1.0
+                isDownloading[model.id] = false
+                await ParakeetTranscriptionProvider.shared.prewarm()
+                return
+            }
+
+            // Progression pendant le téléchargement SDK
             for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
                 guard !Task.isCancelled else {
                     isDownloading[model.id] = false
@@ -214,10 +221,15 @@ final class LocalModelProvider: ObservableObject {
                 try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
             }
 
-            // Pré-charger le modèle Parakeet via FluidAudio
+            // Télécharger via FluidAudio SDK
             await ParakeetTranscriptionProvider.shared.prewarm()
 
-            // Vérifier si le modèle est bien téléchargé
+            // Vérifier si le modèle est bien téléchargé (vérification disque)
+            await MainActor.run {
+                // Recharger la liste pour rafraîchir isReady
+                availableModels = LocalModel.allModels()
+            }
+
             if model.isReady {
                 downloadProgress[model.id] = 1.0
                 isDownloading[model.id] = false
