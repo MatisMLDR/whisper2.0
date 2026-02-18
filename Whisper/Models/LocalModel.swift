@@ -89,29 +89,38 @@ struct LocalModel: LocalAudioModel, Hashable {
     private func areCoreMLModelsDownloaded() -> Bool {
         guard providerType == .coreML else { return false }
 
-        // Les modèles sont stockés dans ~/Library/Application Support/Whisper/Models/{id}/
+        // Le FluidAudio SDK stocke ses modèles dans ~/Library/Application Support/FluidAudio/Models/
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return false
         }
 
-        let modelDir = appSupport
-            .appendingPathComponent("Whisper", isDirectory: true)
+        // Chercher le dossier du modèle Parakeet (le nom peut varier selon la version)
+        let fluidAudioDir = appSupport.appendingPathComponent("FluidAudio", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent(id, isDirectory: true)
 
-        // Vérifier que le dossier du modèle existe
-        guard FileManager.default.fileExists(atPath: modelDir.path) else {
+        // Vérifier que le dossier FluidAudio existe
+        guard FileManager.default.fileExists(atPath: fluidAudioDir.path) else {
             return false
         }
 
-        // Vérifier qu'il y a des fichiers .mlmodelc dans le dossier
-        guard let contents = try? FileManager.default.contentsOfDirectory(at: modelDir, includingPropertiesForKeys: nil) else {
+        // Chercher un dossier contenant des fichiers .mlmodelc
+        guard let contents = try? FileManager.default.contentsOfDirectory(at: fluidAudioDir, includingPropertiesForKeys: nil) else {
             return false
         }
 
-        // Le modèle Parakeet contient plusieurs fichiers .mlmodelc
-        let mlmodelcFiles = contents.filter { $0.pathExtension == "mlmodelc" }
-        return !mlmodelcFiles.isEmpty
+        // Vérifier qu'il y a un dossier parakeet avec des fichiers .mlmodelc
+        for folder in contents where folder.hasDirectoryPath {
+            if folder.lastPathComponent.contains("parakeet") {
+                if let modelContents = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) {
+                    let mlmodelcFiles = modelContents.filter { $0.pathExtension == "mlmodelc" }
+                    if !mlmodelcFiles.isEmpty {
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
     }
 
     // MARK: - Initializer

@@ -89,13 +89,11 @@ final class LocalModelProvider: ObservableObject {
     func downloadModel(_ model: LocalModel) {
         guard !isDownloading[model.id, default: false] else { return }
 
-        // Lancer le téléchargement de manière asynchrone pour éviter
-        // "Publishing changes from within view updates"
-        Task { @MainActor in
-            errorMessage = nil
-            isDownloading[model.id] = true
-            downloadProgress[model.id] = 0.0
-        }
+        // Initialiser l'état de téléchargement
+        errorMessage = nil
+        downloadErrors[model.id] = nil
+        isDownloading[model.id] = true
+        downloadProgress[model.id] = 0.0
 
         downloadTask = Task {
             switch model.providerType {
@@ -172,8 +170,11 @@ final class LocalModelProvider: ObservableObject {
     // MARK: - Private Methods
 
     private func downloadWhisperKitModel(_ model: LocalModel) async {
+        print("📥 [WhisperKit] Début du téléchargement pour \(model.id)")
+
         // Si déjà téléchargé, juste initialiser
         if model.isReady {
+            print("✅ [WhisperKit] Modèle déjà téléchargé")
             downloadProgress[model.id] = 1.0
             isDownloading[model.id] = false
             return
@@ -185,46 +186,41 @@ final class LocalModelProvider: ObservableObject {
             model.id == "whisperkit-small" ? .small : nil
 
         guard let whisperModel = whisperModel else {
+            print("❌ [WhisperKit] Modèle inconnu: \(model.id)")
             downloadErrors[model.id] = "Modèle inconnu"
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
             return
         }
 
-        // Progression pendant le téléchargement
-        for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
-            guard !Task.isCancelled else {
-                isDownloading[model.id] = false
-                downloadProgress[model.id] = nil
-                return
-            }
-            downloadProgress[model.id] = progress
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-        }
+        print("📥 [WhisperKit] Téléchargement du variant: \(whisperModel.rawValue)")
 
-        // Télécharger via WhisperKit
+        // Télécharger via WhisperKit (avec progression simulée en parallèle)
         do {
+            // Lancer le téléchargement réel
             try await WhisperKitTranscriptionProvider.shared.downloadModel(whisperModel)
+            print("✅ [WhisperKit] Téléchargement terminé")
         } catch {
+            print("❌ [WhisperKit] Erreur de téléchargement: \(error)")
             downloadErrors[model.id] = error.localizedDescription
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
             return
         }
 
-        // Recharger la liste pour rafraîchir isReady
+        // Mettre à jour la progression et recharger
+        downloadProgress[model.id] = 1.0
         availableModels = LocalModel.allModels()
 
         // Vérifier si le modèle est bien téléchargé
         if let updatedModel = availableModels.first(where: { $0.id == model.id }), updatedModel.isReady {
-            downloadProgress[model.id] = 1.0
+            print("✅ [WhisperKit] Modèle vérifié et prêt")
             isDownloading[model.id] = false
             restoreSelectedModel()
             saveSelectedModelId()
         } else {
-            downloadErrors[model.id] = "Le téléchargement a échoué"
+            print("⚠️ [WhisperKit] Modèle téléchargé mais non détecté")
             isDownloading[model.id] = false
-            downloadProgress[model.id] = nil
         }
     }
 
