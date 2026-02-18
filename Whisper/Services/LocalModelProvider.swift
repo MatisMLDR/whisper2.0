@@ -102,9 +102,7 @@ final class LocalModelProvider: ObservableObject {
             case .whisperKit:
                 await downloadWhisperKitModel(model)
             case .coreML:
-                await MainActor.run {
-                    downloadCoreMLModel(model)
-                }
+                await downloadCoreMLModel(model)
             case .generic:
                 break
             }
@@ -200,42 +198,40 @@ final class LocalModelProvider: ObservableObject {
         }
     }
 
-    private func downloadCoreMLModel(_ model: LocalModel) {
-        Task { @MainActor in
-            downloadErrors[model.id] = nil
+    private func downloadCoreMLModel(_ model: LocalModel) async {
+        downloadErrors[model.id] = nil
 
-            // Utiliser FluidAudio SDK pour télécharger
-            do {
-                // Progression indéterminée - on simule une progression basique
-                for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
-                    guard !Task.isCancelled else {
-                        isDownloading[model.id] = false
-                        downloadProgress[model.id] = nil
-                        return
-                    }
-                    downloadProgress[model.id] = progress
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-                }
-
-                // Pré-charger le modèle Parakeet via FluidAudio
-                await ParakeetTranscriptionProvider.shared.prewarm()
-
-                // Vérifier si le modèle est bien téléchargé
-                if model.isReady {
-                    downloadProgress[model.id] = 1.0
+        // Utiliser FluidAudio SDK pour télécharger
+        do {
+            // Progression simulée pendant le téléchargement SDK
+            for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
+                guard !Task.isCancelled else {
                     isDownloading[model.id] = false
-
-                    // Rafraîchir la sélection
-                    restoreSelectedModel()
-                    saveSelectedModelId()
-                } else {
-                    throw NSError(domain: "LocalModelProvider", code: 1, userInfo: [NSLocalizedDescriptionKey: "Le téléchargement a échoué"])
+                    downloadProgress[model.id] = nil
+                    return
                 }
-            } catch {
-                downloadErrors[model.id] = error.localizedDescription
-                isDownloading[model.id] = false
-                downloadProgress[model.id] = nil
+                downloadProgress[model.id] = progress
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
             }
+
+            // Pré-charger le modèle Parakeet via FluidAudio
+            await ParakeetTranscriptionProvider.shared.prewarm()
+
+            // Vérifier si le modèle est bien téléchargé
+            if model.isReady {
+                downloadProgress[model.id] = 1.0
+                isDownloading[model.id] = false
+
+                // Rafraîchir la sélection
+                restoreSelectedModel()
+                saveSelectedModelId()
+            } else {
+                throw NSError(domain: "LocalModelProvider", code: 1, userInfo: [NSLocalizedDescriptionKey: "Le téléchargement a échoué"])
+            }
+        } catch {
+            downloadErrors[model.id] = error.localizedDescription
+            isDownloading[model.id] = false
+            downloadProgress[model.id] = nil
         }
     }
 
