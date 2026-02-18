@@ -152,20 +152,16 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     /// Vérifie si un modèle est déjà téléchargé
     func isModelDownloaded(_ model: WhisperModel) -> Bool {
         #if canImport(WhisperKit)
-        guard let snapshotsPath = getCachePath()?
-            .appendingPathComponent("hub")
-            .appendingPathComponent("models--argmaxinc--whisperkit-coreml")
-            .appendingPathComponent("snapshots") else { return false }
+        // WhisperKit stocke les modèles dans ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        guard let modelPath = documentsDir?
+            .appendingPathComponent("huggingface", isDirectory: true)
+            .appendingPathComponent("models", isDirectory: true)
+            .appendingPathComponent("argmaxinc", isDirectory: true)
+            .appendingPathComponent("whisperkit-coreml", isDirectory: true)
+            .appendingPathComponent(model.rawValue, isDirectory: true) else { return false }
 
-        // Lister les snapshots et vérifier si un contient le modèle
-        guard let snapshots = try? FileManager.default.contentsOfDirectory(at: snapshotsPath, includingPropertiesForKeys: nil) else {
-            return false
-        }
-
-        return snapshots.contains { snapshot in
-            let modelPath = snapshot.appendingPathComponent(model.rawValue)
-            return FileManager.default.fileExists(atPath: modelPath.path)
-        }
+        return FileManager.default.fileExists(atPath: modelPath.path)
         #else
         return false
         #endif

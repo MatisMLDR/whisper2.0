@@ -58,18 +58,15 @@ struct LocalModel: LocalAudioModel, Hashable {
         return modelsDir.appendingPathComponent("\(id).mlmodelc")
     }
 
-    /// Vérifie si le modèle WhisperKit est téléchargé dans le cache HuggingFace
+    /// Vérifie si le modèle WhisperKit est téléchargé
     private func isWhisperKitModelDownloaded() -> Bool {
-        guard let cachePath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("huggingface")
-            .appendingPathComponent("hub")
-            .appendingPathComponent("models--argmaxinc--whisperkit-coreml")
-            .appendingPathComponent("snapshots") else {
-            return false
-        }
-
-        // Lister les snapshots et vérifier si un contient le modèle
-        guard let snapshots = try? FileManager.default.contentsOfDirectory(at: cachePath, includingPropertiesForKeys: nil) else {
+        // WhisperKit stocke les modèles dans ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        guard let modelBasePath = documentsDir?
+            .appendingPathComponent("huggingface", isDirectory: true)
+            .appendingPathComponent("models", isDirectory: true)
+            .appendingPathComponent("argmaxinc", isDirectory: true)
+            .appendingPathComponent("whisperkit-coreml", isDirectory: true) else {
             return false
         }
 
@@ -79,10 +76,8 @@ struct LocalModel: LocalAudioModel, Hashable {
 
         guard let modelName = modelName else { return false }
 
-        return snapshots.contains { snapshot in
-            let modelPath = snapshot.appendingPathComponent(modelName)
-            return FileManager.default.fileExists(atPath: modelPath.path)
-        }
+        let modelPath = modelBasePath.appendingPathComponent(modelName, isDirectory: true)
+        return FileManager.default.fileExists(atPath: modelPath.path)
     }
 
     /// Vérifie si les modèles CoreML Parakeet sont téléchargés
