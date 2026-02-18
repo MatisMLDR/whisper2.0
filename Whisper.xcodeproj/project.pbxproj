@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		19796D712F45CB6E006B7F28 /* MicrophoneDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */; };
 		19796D732F45CB79006B7F28 /* MicrophoneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19796D722F45CB79006B7F28 /* MicrophoneService.swift */; };
+		19796D762F45F7E1006B7F28 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 19796D752F45F7E1006B7F28 /* FluidAudio */; };
+		19796D782F45F7E1006B7F28 /* FluidAudioEspeak in Frameworks */ = {isa = PBXBuildFile; productRef = 19796D772F45F7E1006B7F28 /* FluidAudioEspeak */; };
 		19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19FFB3CD2F35F81A0030D49A /* CoreML.framework */; };
 		19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 19FFB3D02F3605840030D49A /* WhisperKit */; };
 		AAA000001 /* WhisperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000010 /* WhisperApp.swift */; };
@@ -74,7 +76,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */,
+				19796D762F45F7E1006B7F28 /* FluidAudio in Frameworks */,
 				19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */,
+				19796D782F45F7E1006B7F28 /* FluidAudioEspeak in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -234,6 +238,7 @@
 			mainGroup = AAA000023;
 			packageReferences = (
 				19FFB3CF2F3605840030D49A /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				19796D742F45F7E1006B7F28 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			productRefGroup = AAA000022 /* Products */;
 			projectDirPath = "";
@@ -483,6 +488,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		19796D742F45F7E1006B7F28 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		19FFB3CF2F3605840030D49A /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
@@ -494,6 +507,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		19796D752F45F7E1006B7F28 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 19796D742F45F7E1006B7F28 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
+		};
+		19796D772F45F7E1006B7F28 /* FluidAudioEspeak */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 19796D742F45F7E1006B7F28 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudioEspeak;
+		};
 		19FFB3D02F3605840030D49A /* WhisperKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 19FFB3CF2F3605840030D49A /* XCRemoteSwiftPackageReference "WhisperKit" */;

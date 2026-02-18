@@ -176,12 +176,22 @@ final class LocalModelProvider: ObservableObject {
         if model.isReady {
             downloadProgress[model.id] = 1.0
             isDownloading[model.id] = false
-            await WhisperKitTranscriptionProvider.shared.prewarmModel()
             return
         }
 
-        // Pour WhisperKit, le téléchargement se fait via le provider
-        // On simule une progression car WhisperKit gère ça en interne
+        // Déterminer le modèle WhisperKit à télécharger
+        let whisperModel: WhisperKitTranscriptionProvider.WhisperModel? =
+            model.id == "whisperkit-base" ? .base :
+            model.id == "whisperkit-small" ? .small : nil
+
+        guard let whisperModel = whisperModel else {
+            downloadErrors[model.id] = "Modèle inconnu"
+            isDownloading[model.id] = false
+            downloadProgress[model.id] = nil
+            return
+        }
+
+        // Progression pendant le téléchargement
         for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
             guard !Task.isCancelled else {
                 isDownloading[model.id] = false
@@ -189,12 +199,18 @@ final class LocalModelProvider: ObservableObject {
                 return
             }
             downloadProgress[model.id] = progress
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
         }
 
-        // Pré-charger WhisperKit pour forcer le téléchargement réel
-        // WhisperKit va télécharger le modèle si nécessaire
-        await WhisperKitTranscriptionProvider.shared.prewarmModel()
+        // Télécharger via WhisperKit
+        do {
+            try await WhisperKitTranscriptionProvider.shared.downloadModel(whisperModel)
+        } catch {
+            downloadErrors[model.id] = error.localizedDescription
+            isDownloading[model.id] = false
+            downloadProgress[model.id] = nil
+            return
+        }
 
         // Recharger la liste pour rafraîchir isReady
         availableModels = LocalModel.allModels()
@@ -206,8 +222,9 @@ final class LocalModelProvider: ObservableObject {
             restoreSelectedModel()
             saveSelectedModelId()
         } else {
-            downloadProgress[model.id] = 1.0
+            downloadErrors[model.id] = "Le téléchargement a échoué"
             isDownloading[model.id] = false
+            downloadProgress[model.id] = nil
         }
     }
 

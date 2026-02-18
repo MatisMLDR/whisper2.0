@@ -50,7 +50,7 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
         #if canImport(WhisperKit)
         // Initialiser WhisperKit si pas déjà fait
         if whisperKitInstance == nil && !isInitializing {
-            try await initializeWhisperKit()
+            try await initializeWhisperKit(model: currentModel)
         }
 
         // Attendre que l'initialisation soit terminée
@@ -98,25 +98,19 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     private var isInitializing = false
 
     /// Initialise WhisperKit avec le modèle spécifié
-    private func initializeWhisperKit() async throws {
+    private func initializeWhisperKit(model: WhisperModel) async throws {
         isInitializing = true
         defer { isInitializing = false }
 
         do {
-            // Créer WhisperKit - téléchargera le modèle depuis HuggingFace si nécessaire
+            // Créer WhisperKit avec le modèle spécifié
             whisperKitInstance = try await WhisperKit(
-                modelFolder: nil,
-                computeOptions: ModelComputeOptions(audioEncoderCompute: .cpuAndGPU, textDecoderCompute: .cpuAndGPU),
+                model: model.rawValue,
                 verbose: false,
-                logLevel: .error,
-                prewarm: false,
-                load: false,
                 download: true
             )
-
-            // Charger le modèle
-            try await whisperKitInstance?.loadModels()
         } catch {
+            print("Erreur d'initialisation WhisperKit: \(error)")
             throw TranscriptionError.initializationFailed
         }
     }
@@ -158,14 +152,38 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     /// Vérifie si un modèle est déjà téléchargé
     func isModelDownloaded(_ model: WhisperModel) -> Bool {
         #if canImport(WhisperKit)
-        guard let hubPath = getCachePath()?.appendingPathComponent("hub") else { return false }
-        let modelPath = hubPath.appendingPathComponent("models--argmaxinc--whisperkit-coreml")
-            .appendingPathComponent("snapshots")
-            .appendingPathComponent(model.rawValue)
+        guard let snapshotsPath = getCachePath()?
+            .appendingPathComponent("hub")
+            .appendingPathComponent("models--argmaxinc--whisperkit-coreml")
+            .appendingPathComponent("snapshots") else { return false }
 
-        return FileManager.default.fileExists(atPath: modelPath.path)
+        // Lister les snapshots et vérifier si un contient le modèle
+        guard let snapshots = try? FileManager.default.contentsOfDirectory(at: snapshotsPath, includingPropertiesForKeys: nil) else {
+            return false
+        }
+
+        return snapshots.contains { snapshot in
+            let modelPath = snapshot.appendingPathComponent(model.rawValue)
+            return FileManager.default.fileExists(atPath: modelPath.path)
+        }
         #else
         return false
+        #endif
+    }
+
+    /// Télécharge un modèle spécifique
+    func downloadModel(_ model: WhisperModel) async throws {
+        #if canImport(WhisperKit)
+        // Si déjà téléchargé, pas besoin de retélécharger
+        if isModelDownloaded(model) { return }
+
+        // Extraire le variant du modèle (base, small, etc.)
+        let variant = model.rawValue.replacingOccurrences(of: "openai_whisper-", with: "")
+
+        // Télécharger le modèle via WhisperKit
+        _ = try await WhisperKit.download(variant: variant)
+        #else
+        throw TranscriptionError.whisperKitNotAvailable
         #endif
     }
 
@@ -173,8 +191,17 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     func prewarmModel() async {
         #if canImport(WhisperKit)
         if whisperKitInstance == nil && !isInitializing {
-            try? await initializeWhisperKit()
+            try? await initializeWhisperKit(model: currentModel)
         }
+        #endif
+    }
+
+    /// Pré-charge un modèle spécifique
+    func prewarmModel(_ model: WhisperModel) async {
+        #if canImport(WhisperKit)
+        currentModel = model
+        whisperKitInstance = nil
+        try? await initializeWhisperKit(model: model)
         #endif
     }
 
