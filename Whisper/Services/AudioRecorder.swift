@@ -1,12 +1,14 @@
 import AVFoundation
 import Foundation
 
+@MainActor
 final class AudioRecorder: NSObject, ObservableObject {
     @Published private(set) var isRecording = false
     @Published private(set) var hasPermission = false
 
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
+    private let microphoneService = MicrophoneService.shared
 
     override init() {
         super.init()
@@ -19,7 +21,7 @@ final class AudioRecorder: NSObject, ObservableObject {
             hasPermission = true
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.hasPermission = granted
                 }
             }
@@ -40,6 +42,9 @@ final class AudioRecorder: NSObject, ObservableObject {
             throw RecordingError.noPermission
         }
 
+        // Préparer le microphone sélectionné (change le défaut système)
+        microphoneService.prepareForRecording()
+
         let url = getRecordingURL()
         recordingURL = url
 
@@ -59,6 +64,10 @@ final class AudioRecorder: NSObject, ObservableObject {
     func stopRecording() -> URL? {
         audioRecorder?.stop()
         isRecording = false
+
+        // Restaurer le périphérique par défaut original
+        microphoneService.restoreAfterRecording()
+
         return recordingURL
     }
 
@@ -85,13 +94,13 @@ final class AudioRecorder: NSObject, ObservableObject {
 }
 
 extension AudioRecorder: AVAudioRecorderDelegate {
-    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+    nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         if !flag {
             print("Enregistrement terminé avec erreur")
         }
     }
 
-    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
+    nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
         if let error = error {
             print("Erreur d'encodage: \(error.localizedDescription)")
         }

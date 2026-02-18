@@ -10,6 +10,9 @@ import FluidAudio
 final class ParakeetTranscriptionProvider: TranscriptionProvider {
     static let shared = ParakeetTranscriptionProvider()
 
+    /// Stockage thread-safe pour l'état de téléchargement (accessible depuis n'importe quel contexte)
+    nonisolated(unsafe) private(set) static var isModelsDownloaded: Bool = false
+
     #if canImport(FluidAudio)
     private var asrManager: AsrManager?
     private var isInitializing = false
@@ -69,6 +72,7 @@ final class ParakeetTranscriptionProvider: TranscriptionProvider {
             asrManager = AsrManager(config: .default)
             try await asrManager?.initialize(models: models)
             modelsLoaded = true
+            Self.isModelsDownloaded = true
 
             print("Parakeet ASR initialisé avec succès")
         } catch {
@@ -79,15 +83,6 @@ final class ParakeetTranscriptionProvider: TranscriptionProvider {
     #endif
 
     // MARK: - Public Methods
-
-    /// Vérifie si les modèles sont téléchargés
-    var isModelsDownloaded: Bool {
-        #if canImport(FluidAudio)
-        return modelsLoaded
-        #else
-        return false
-        #endif
-    }
 
     /// Pré-charge l'ASR pour un démarrage plus rapide
     func prewarm() async {

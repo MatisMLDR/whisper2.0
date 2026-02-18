@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		19796D712F45CB6E006B7F28 /* MicrophoneDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */; };
+		19796D732F45CB79006B7F28 /* MicrophoneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19796D722F45CB79006B7F28 /* MicrophoneService.swift */; };
 		19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19FFB3CD2F35F81A0030D49A /* CoreML.framework */; };
 		19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 19FFB3D02F3605840030D49A /* WhisperKit */; };
 		AAA000001 /* WhisperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000010 /* WhisperApp.swift */; };
@@ -35,6 +37,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneDevice.swift; sourceTree = "<group>"; };
+		19796D722F45CB79006B7F28 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
 		19FFB3CD2F35F81A0030D49A /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		AAA000010 /* WhisperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperApp.swift; sourceTree = "<group>"; };
 		AAA000011 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -115,6 +119,7 @@
 		AAA000020 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				19796D722F45CB79006B7F28 /* MicrophoneService.swift */,
 				AAA000014 /* AudioRecorder.swift */,
 				AAA000015 /* KeyboardService.swift */,
 				AAA000016 /* TranscriptionService.swift */,
@@ -165,6 +170,7 @@
 		CCC000018 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */,
 				CCC000011 /* TranscriptionMode.swift */,
 				CCC000012 /* LocalModel.swift */,
 				DDD000015 /* LocalAudioModel.swift */,
@@ -263,9 +269,11 @@
 				AAA000008 /* TextInjector.swift in Sources */,
 				AAA000009 /* KeychainHelper.swift in Sources */,
 				AAA00000A /* Constants.swift in Sources */,
+				19796D732F45CB79006B7F28 /* MicrophoneService.swift in Sources */,
 				BBB000001 /* SoundService.swift in Sources */,
 				BBB000002 /* HistoryService.swift in Sources */,
 				BBB000003 /* HistoryView.swift in Sources */,
+				19796D712F45CB6E006B7F28 /* MicrophoneDevice.swift in Sources */,
 				CCC000001 /* TranscriptionProvider.swift in Sources */,
 				CCC000002 /* TranscriptionMode.swift in Sources */,
 				CCC000003 /* LocalModel.swift in Sources */,

@@ -34,7 +34,7 @@ struct LocalModel: LocalAudioModel, Hashable {
             return isWhisperKitModelDownloaded()
         case .coreML:
             // Pour Parakeet via FluidAudio, vérifier si les modèles sont chargés
-            return ParakeetTranscriptionProvider.shared.isModelsDownloaded
+            return ParakeetTranscriptionProvider.isModelsDownloaded
         case .generic:
             return false
         }

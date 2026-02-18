@@ -8,6 +8,8 @@ struct SettingsView: View {
     @State private var showSuccessHint: Bool = false
     @State private var showErrorHint: Bool = false
 
+    @StateObject private var microphoneService = MicrophoneService.shared
+
     private let accentColor = Color(nsColor: .controlAccentColor)
 
     var body: some View {
@@ -17,6 +19,8 @@ struct SettingsView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     transcriptionModeSection
+
+                    microphoneSection
 
                     if appState.transcriptionMode == .api {
                         apiConfigurationSection
@@ -66,6 +70,50 @@ struct SettingsView: View {
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
+            }
+        }
+    }
+
+    private var microphoneSection: some View {
+        SettingsSection(title: "MICROPHONE", icon: "mic.fill") {
+            VStack(alignment: .leading, spacing: 12) {
+                if microphoneService.availableDevices.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "mic.slash")
+                            .foregroundColor(.orange)
+                        Text("Aucun microphone détecté")
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Picker(selection: $microphoneService.selectedDevice, label: EmptyView()) {
+                        ForEach(microphoneService.availableDevices) { device in
+                            HStack {
+                                Image(systemName: device.iconName)
+                                Text(device.displayName)
+                            }
+                            .tag(device as MicrophoneDevice?)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if !microphoneService.isSelectedDeviceAvailable {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Microphone déconnecté")
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+
+                Button(action: { microphoneService.refreshDevices() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Actualiser")
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(accentColor)
             }
         }
     }
