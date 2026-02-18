@@ -53,6 +53,18 @@ final class AppState: ObservableObject {
         if !TextInjector.hasAccessibilityPermission() {
             TextInjector.requestAccessibilityPermission()
         }
+
+        // Si un modèle local est déjà téléchargé et sélectionné, pré-initialiser le provider
+        if let selectedModel = localModelProvider.selectedModel, selectedModel.isReady {
+            Task {
+                switch selectedModel.providerType {
+                case .coreML, .generic:
+                    await ParakeetTranscriptionProvider.shared.prewarm()
+                case .whisperKit:
+                    await WhisperKitTranscriptionProvider.shared.prewarmModel()
+                }
+            }
+        }
     }
 
     private func startRecording() {
