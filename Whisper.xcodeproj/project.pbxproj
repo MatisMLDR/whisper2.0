@@ -34,6 +34,7 @@
 		DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000013 /* WhisperKitTranscriptionProvider.swift */; };
 		DDD000014 /* LocalAudioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000015 /* LocalAudioModel.swift */; };
 		DDD000016 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000017 /* LocalModelProvider.swift */; };
+		EEE000001 /* ModelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEE000010 /* ModelRowView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		DDD000013 /* WhisperKitTranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperKitTranscriptionProvider.swift; sourceTree = "<group>"; };
 		DDD000015 /* LocalAudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioModel.swift; sourceTree = "<group>"; };
 		DDD000017 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
+		EEE000010 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,6 +114,7 @@
 				AAA000012 /* MenuBarView.swift */,
 				AAA000013 /* SettingsView.swift */,
 				BBB000012 /* HistoryView.swift */,
+				EEE000010 /* ModelRowView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -284,6 +287,7 @@
 				DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */,
 				DDD000014 /* LocalAudioModel.swift in Sources */,
 				DDD000016 /* LocalModelProvider.swift in Sources */,
+				EEE000001 /* ModelRowView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
