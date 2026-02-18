@@ -82,6 +82,7 @@ Whisper/
 ## Key Patterns
 
 - **SwiftUI** with `@StateObject` / `@EnvironmentObject` for view state
+- **Nested ObservableObject** - Must subscribe to `objectWillChange` and forward to parent (see AppState→LocalModelProvider)
 - **MainActor** for all UI-related state management
 - **Async/await** for API calls
 - **Singleton pattern** for services (accessed via `.shared`)
@@ -108,13 +109,28 @@ Check with `TextInjector.hasAccessibilityPermission()` and request with `TextInj
 - API key validation via `TranscriptionService.validateAPIKey()`
 - Cost: ~$0.006/minute
 
+## Dependencies
+
+### Swift Packages (via SPM)
+- **WhisperKit** - `https://github.com/argmaxinc/WhisperKit.git` (branch: main)
+- **FluidAudio** - `https://github.com/FluidInference/FluidAudio.git` (required for Parakeet)
+
 ## Local Models
 
 - **Parakeet TDT 0.6B v3** - NVIDIA multilingual model via CoreML
-- Downloaded from Hugging Face (~620 MB, 6 CoreML files)
-- Stored in `~/Library/Application Support/Whisper/Models/parakeet-tdt-0.6b-v3/`
-- Requires WAV PCM format (AudioConverter handles M4A→WAV)
-- **Note:** Parakeet transcription is currently a work-in-progress (RNN-T pipeline not fully implemented)
+  - Downloaded automatically by FluidAudio SDK (~620 MB, 6 CoreML files)
+  - Stored in `~/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml/`
+  - Requires WAV PCM format (AudioConverter handles M4A→WAV)
+
+- **WhisperKit** - Argmax Whisper models (base, small)
+  - Downloaded via `WhisperKit.download(variant:)` API
+  - Stored in `~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/{model_name}/`
+
+### Model Detection
+
+`LocalModel.isReady` checks disk for downloaded models:
+- **Parakeet:** Checks `~/Library/Application Support/FluidAudio/Models/` for `.mlmodelc` files
+- **WhisperKit:** Checks `~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/` for model folder
 
 ## Audio Format
 
