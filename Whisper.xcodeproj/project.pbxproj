@@ -29,7 +29,6 @@
 		CCC000003 /* LocalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000012 /* LocalModel.swift */; };
 		CCC000004 /* OpenAITranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000013 /* OpenAITranscriptionProvider.swift */; };
 		CCC000005 /* ParakeetTranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000014 /* ParakeetTranscriptionProvider.swift */; };
-		CCC000006 /* LocalModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000015 /* LocalModelManager.swift */; };
 		CCC000007 /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000016 /* AudioConverter.swift */; };
 		DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000013 /* WhisperKitTranscriptionProvider.swift */; };
 		DDD000014 /* LocalAudioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000015 /* LocalAudioModel.swift */; };
@@ -62,7 +61,6 @@
 		CCC000012 /* LocalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModel.swift; sourceTree = "<group>"; };
 		CCC000013 /* OpenAITranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAITranscriptionProvider.swift; sourceTree = "<group>"; };
 		CCC000014 /* ParakeetTranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriptionProvider.swift; sourceTree = "<group>"; };
-		CCC000015 /* LocalModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelManager.swift; sourceTree = "<group>"; };
 		CCC000016 /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
 		DDD000013 /* WhisperKitTranscriptionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperKitTranscriptionProvider.swift; sourceTree = "<group>"; };
 		DDD000015 /* LocalAudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioModel.swift; sourceTree = "<group>"; };
@@ -129,7 +127,6 @@
 				AAA000017 /* TextInjector.swift */,
 				BBB000010 /* SoundService.swift */,
 				BBB000011 /* HistoryService.swift */,
-				CCC000015 /* LocalModelManager.swift */,
 				CCC000016 /* AudioConverter.swift */,
 				DDD000017 /* LocalModelProvider.swift */,
 			);
@@ -282,7 +279,6 @@
 				CCC000003 /* LocalModel.swift in Sources */,
 				CCC000004 /* OpenAITranscriptionProvider.swift in Sources */,
 				CCC000005 /* ParakeetTranscriptionProvider.swift in Sources */,
-				CCC000006 /* LocalModelManager.swift in Sources */,
 				CCC000007 /* AudioConverter.swift in Sources */,
 				DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */,
 				DDD000014 /* LocalAudioModel.swift in Sources */,

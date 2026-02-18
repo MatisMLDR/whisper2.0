@@ -369,7 +369,7 @@ struct SettingsView: View {
 
                 // Afficher l'erreur si présente
                 if let error = appState.localModelProvider.errorMessage ??
-                               LocalModelManager.shared.downloadError[model.id] {
+                               appState.localModelProvider.downloadErrors[model.id] {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -379,8 +379,7 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         Button("Réessayer") {
-                            LocalModelManager.shared.downloadError[model.id] = nil
-                            appState.localModelProvider.downloadModel(model)
+                            appState.localModelProvider.retryDownload(model)
                         }
                         .font(.system(size: 10))
                         .buttonStyle(.plain)

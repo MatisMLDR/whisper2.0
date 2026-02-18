@@ -12,9 +12,6 @@ final class AppState: ObservableObject {
     /// Gestionnaire des modèles locaux
     @Published var localModelProvider = LocalModelProvider.shared
 
-    /// Gestionnaire legacy pour CoreML (Parakeet)
-    @Published var localModelManager = LocalModelManager.shared
-
     let audioRecorder = AudioRecorder()
     let keyboardService = KeyboardService()
 
@@ -67,15 +64,12 @@ final class AppState: ObservableObject {
                 return
             }
         } else {
-            // Mode local: pour WhisperKit, pas besoin de vérifier
-            // Pour CoreML, vérifier qu'un modèle est téléchargé
-            if let selectedModel = localModelProvider.selectedModel,
-               selectedModel.providerType == .coreML {
-                guard localModelManager.getReadyModel() != nil else {
-                    lastError = "Téléchargez un modèle local dans les préférences"
-                    SoundService.shared.playErrorSound()
-                    return
-                }
+            // Mode local: vérifier qu'un modèle est sélectionné et prêt
+            guard let selectedModel = localModelProvider.selectedModel,
+                  selectedModel.isReady else {
+                lastError = "Téléchargez un modèle local dans les préférences"
+                SoundService.shared.playErrorSound()
+                return
             }
         }
 
