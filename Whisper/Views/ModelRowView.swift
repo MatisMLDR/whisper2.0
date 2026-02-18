@@ -39,33 +39,35 @@ struct ModelRowView: View {
             actionButtons
         }
         .padding(.vertical, 8)
+        .onAppear {
+            print("📱 [ModelRowView] Affichage de \(model.id): isReady=\(model.isReady), isDownloaded=\(isDownloaded)")
+        }
     }
 
     // MARK: - Subviews
     private var radioButton: some View {
-        Button(action: {
-            print("🔘 [ModelRowView] Radio button cliqué pour: \(model.id)")
+        ZStack {
+            Circle()
+                .stroke(isDownloaded ? (isSelected ? accentColor : Color.primary.opacity(0.3)) : Color.primary.opacity(0.15), lineWidth: 2)
+                .frame(width: 20, height: 20)
+
+            if isSelected && isDownloaded {
+                Circle()
+                    .fill(accentColor)
+                    .frame(width: 12, height: 12)
+            }
+        }
+        .frame(width: 28, height: 28) // Zone de tap plus grande
+        .contentShape(Rectangle())
+        .onTapGesture {
+            print("🔘 [ModelRowView] Tap gesture pour: \(model.id)")
             print("🔘 [ModelRowView] isDownloaded: \(isDownloaded)")
             guard isDownloaded else {
                 print("❌ [ModelRowView] Non téléchargé, action ignorée")
                 return
             }
             onSelect()
-        }) {
-            ZStack {
-                Circle()
-                    .stroke(isDownloaded ? (isSelected ? accentColor : Color.primary.opacity(0.3)) : Color.primary.opacity(0.15), lineWidth: 2)
-                    .frame(width: 20, height: 20)
-
-                if isSelected && isDownloaded {
-                    Circle()
-                        .fill(accentColor)
-                        .frame(width: 12, height: 12)
-                }
-            }
         }
-        .buttonStyle(.plain)
-        .disabled(!isDownloaded)
         .opacity(isDownloaded ? 1.0 : 0.4)
         .help(isDownloaded ? "Sélectionner ce modèle" : "Téléchargez d'abord ce modèle")
     }

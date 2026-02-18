@@ -10,10 +10,13 @@ final class AppState: ObservableObject {
     @Published var transcriptionMode: TranscriptionMode = .api
 
     /// Gestionnaire des modèles locaux
-    @Published var localModelProvider = LocalModelProvider.shared
+    var localModelProvider = LocalModelProvider.shared
 
     let audioRecorder = AudioRecorder()
     let keyboardService = KeyboardService()
+
+    /// Cancellable pour observer LocalModelProvider
+    private var modelProviderCancellable: AnyCancellable?
 
     /// Provider de transcription actuel selon le mode choisi
     var currentProvider: TranscriptionProvider {
@@ -32,6 +35,13 @@ final class AppState: ObservableObject {
 
     init() {
         hasAPIKey = KeychainHelper.shared.hasAPIKey
+
+        // Observer les changements de LocalModelProvider pour propager les mises à jour UI
+        modelProviderCancellable = localModelProvider.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor in
+                self?.objectWillChange.send()
+            }
+        }
 
         // Push-to-talk: Fn pressé = enregistre, Fn relâché = transcrit
         keyboardService.onFnPressed = { [weak self] in
