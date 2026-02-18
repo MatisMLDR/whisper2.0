@@ -169,223 +169,34 @@ struct SettingsView: View {
     private var localModelsSection: some View {
         SettingsSection(title: "MODÈLES LOCAUX", icon: "cpu.fill") {
             VStack(alignment: .leading, spacing: 0) {
-                // Liste des modèles disponibles
                 ForEach(appState.localModelProvider.availableModels) { model in
-                    modelRow(model)
+                    ModelRowView(
+                        model: model,
+                        isSelected: isSelected(model),
+                        isDownloading: appState.localModelProvider.isDownloading[model.id] ?? false,
+                        downloadProgress: appState.localModelProvider.downloadProgress[model.id] ?? 0,
+                        errorMessage: appState.localModelProvider.downloadErrors[model.id]
+                    ) {
+                        // onSelect
+                        appState.localModelProvider.selectModel(model)
+                    } onDownload: {
+                        // onDownload
+                        appState.localModelProvider.downloadModel(model)
+                    } onCancel: {
+                        // onCancel
+                        appState.localModelProvider.cancelDownload(model)
+                    } onDelete: {
+                        // onDelete
+                        appState.localModelProvider.deleteModel(model)
+                    } onRetry: {
+                        // onRetry
+                        appState.localModelProvider.retryDownload(model)
+                    }
 
                     if model.id != appState.localModelProvider.availableModels.last?.id {
                         Divider()
                             .padding(.vertical, 8)
                     }
-                }
-            }
-        }
-    }
-
-    private func modelRow(_ model: LocalModel) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Bouton de sélection
-            Button(action: {
-                guard model.isReady else { return }
-                appState.localModelProvider.selectedModel = model
-            }) {
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(isSelected(model) ? accentColor.opacity(0.2) : Color.clear)
-
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(isSelected(model) ? accentColor : Color.primary.opacity(0.1), lineWidth: isSelected(model) ? 2 : 1)
-
-                    if isSelected(model) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
-                            Text("Sélectionné")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(accentColor)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    } else if !model.isReady {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.down.circle")
-                                .font(.system(size: 12))
-                            Text("Télécharger")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    } else {
-                        HStack(spacing: 4) {
-                            Image(systemName: "circle")
-                                .font(.system(size: 12))
-                            Text("Sélectionner")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    }
-                }
-                .frame(height: 36)
-            }
-            .buttonStyle(.plain)
-            .disabled(!model.isReady)
-            .opacity(model.isReady ? 1.0 : 0.6)
-
-            // Info du modèle
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text(model.name)
-                        .font(.system(size: 13, weight: isSelected(model) ? .semibold : .regular))
-                        .foregroundColor(isSelected(model) ? accentColor : .primary)
-
-                    // Badge du provider
-                    Text(model.providerType.displayName.uppercased())
-                        .font(.system(size: 9, weight: .bold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(model.providerType == .whisperKit ? Color.blue.opacity(0.2) : Color.purple.opacity(0.2))
-                        .foregroundColor(model.providerType == .whisperKit ? .blue : .purple)
-                        .cornerRadius(4)
-
-                    // Badge "Téléchargé" si le modèle est prêt
-                    if model.isReady {
-                        HStack(spacing: 3) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 7))
-                            Text("Téléchargé")
-                                .font(.system(size: 9, weight: .semibold))
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.green.opacity(0.2))
-                        .foregroundColor(.green)
-                        .cornerRadius(4)
-                    }
-                }
-
-                Text(model.description)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 12) {
-                    Text(model.language)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-
-                    Text("•")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-
-                    Text(model.fileSize)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Actions (télécharger/supprimer)
-            modelActions(model)
-        }
-        .padding(.vertical, 8)
-    }
-
-    @ViewBuilder
-    private func modelActions(_ model: LocalModel) -> some View {
-        if appState.localModelProvider.isDownloading[model.id] == true {
-            VStack(spacing: 4) {
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(Color.primary.opacity(0.1))
-                        .frame(width: 100, height: 8)
-
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(accentColor)
-                        .frame(width: 100 * (appState.localModelProvider.downloadProgress[model.id] ?? 0), height: 8)
-                        .animation(.linear(duration: 0.1), value: appState.localModelProvider.downloadProgress[model.id])
-                }
-
-                HStack(spacing: 4) {
-                    Text("\(Int((appState.localModelProvider.downloadProgress[model.id] ?? 0) * 100))%")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-
-                    Button(action: {
-                        appState.localModelProvider.cancelDownload(model)
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        } else if model.isReady {
-            // Modèle téléchargé - bouton vert + bouton supprimer
-            HStack(spacing: 6) {
-                // Badge "Téléchargé" vert
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 10))
-                    Text("Téléchargé")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Color.green.opacity(0.15))
-                .foregroundColor(.green)
-                .cornerRadius(6)
-
-                // Bouton supprimer
-                Button(action: {
-                    appState.localModelProvider.deleteModel(model)
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 11))
-                        .foregroundColor(.red)
-                        .frame(width: 24, height: 24)
-                        .background(Color.red.opacity(0.1))
-                        .cornerRadius(5)
-                }
-                .buttonStyle(.plain)
-            }
-        } else {
-            // Bouton télécharger + erreur éventuelle
-            VStack(alignment: .leading, spacing: 4) {
-                Button(action: {
-                    appState.localModelProvider.downloadModel(model)
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "icloud.and.arrow.down")
-                            .font(.system(size: 12))
-                        Text("Télécharger")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                }
-                .buttonStyle(RefinedButtonStyle(isPrimary: true))
-
-                // Afficher l'erreur si présente
-                if let error = appState.localModelProvider.errorMessage ??
-                               appState.localModelProvider.downloadErrors[model.id] {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text(error)
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                        Button("Réessayer") {
-                            appState.localModelProvider.retryDownload(model)
-                        }
-                        .font(.system(size: 10))
-                        .buttonStyle(.plain)
-                        .foregroundColor(accentColor)
-                    }
-                    .frame(width: 120)
                 }
             }
         }
