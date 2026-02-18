@@ -85,28 +85,31 @@ struct LocalModel: LocalAudioModel, Hashable {
         }
     }
 
-    /// Vérifie si les modèles CoreML Parakeet sont téléchargés dans le cache FluidAudio
+    /// Vérifie si les modèles CoreML Parakeet sont téléchargés
     private func areCoreMLModelsDownloaded() -> Bool {
         guard providerType == .coreML else { return false }
 
-        // Le FluidAudio SDK stocke ses modèles dans ~/.cache/fluidaudio/Models/
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let fluidAudioCache = homeDir
-            .appendingPathComponent(".cache", isDirectory: true)
-            .appendingPathComponent("fluidaudio", isDirectory: true)
+        // Les modèles sont stockés dans ~/Library/Application Support/Whisper/Models/{id}/
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return false
+        }
+
+        let modelDir = appSupport
+            .appendingPathComponent("Whisper", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
+            .appendingPathComponent(id, isDirectory: true)
 
-        // Vérifier que le dossier de cache existe
-        guard FileManager.default.fileExists(atPath: fluidAudioCache.path) else {
+        // Vérifier que le dossier du modèle existe
+        guard FileManager.default.fileExists(atPath: modelDir.path) else {
             return false
         }
 
-        // Vérifier qu'il y a des fichiers .mlmodelc dans le cache
-        guard let contents = try? FileManager.default.contentsOfDirectory(at: fluidAudioCache, includingPropertiesForKeys: nil) else {
+        // Vérifier qu'il y a des fichiers .mlmodelc dans le dossier
+        guard let contents = try? FileManager.default.contentsOfDirectory(at: modelDir, includingPropertiesForKeys: nil) else {
             return false
         }
 
-        // Parakeet TDT 0.6B v3 contient plusieurs fichiers .mlmodelc
+        // Le modèle Parakeet contient plusieurs fichiers .mlmodelc
         let mlmodelcFiles = contents.filter { $0.pathExtension == "mlmodelc" }
         return !mlmodelcFiles.isEmpty
     }

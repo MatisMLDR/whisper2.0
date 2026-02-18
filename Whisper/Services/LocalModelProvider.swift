@@ -172,18 +172,23 @@ final class LocalModelProvider: ObservableObject {
     // MARK: - Private Methods
 
     private func downloadWhisperKitModel(_ model: LocalModel) async {
+        // Si déjà téléchargé, juste initialiser
+        if model.isReady {
+            downloadProgress[model.id] = 1.0
+            isDownloading[model.id] = false
+            await WhisperKitTranscriptionProvider.shared.prewarmModel()
+            return
+        }
+
         // Pour WhisperKit, le téléchargement se fait via le provider
         // On simule une progression car WhisperKit gère ça en interne
         for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
             guard !Task.isCancelled else {
-                await MainActor.run {
-                    isDownloading[model.id] = false
-                }
+                isDownloading[model.id] = false
+                downloadProgress[model.id] = nil
                 return
             }
-            await MainActor.run {
-                downloadProgress[model.id] = progress
-            }
+            downloadProgress[model.id] = progress
             try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
         }
 
@@ -191,57 +196,57 @@ final class LocalModelProvider: ObservableObject {
         // WhisperKit va télécharger le modèle si nécessaire
         await WhisperKitTranscriptionProvider.shared.prewarmModel()
 
-        // Marquer comme terminé
-        await MainActor.run {
-            isDownloading[model.id] = false
+        // Recharger la liste pour rafraîchir isReady
+        availableModels = LocalModel.allModels()
+
+        // Vérifier si le modèle est bien téléchargé
+        if let updatedModel = availableModels.first(where: { $0.id == model.id }), updatedModel.isReady {
             downloadProgress[model.id] = 1.0
+            isDownloading[model.id] = false
+            restoreSelectedModel()
+            saveSelectedModelId()
+        } else {
+            downloadProgress[model.id] = 1.0
+            isDownloading[model.id] = false
         }
     }
 
     private func downloadCoreMLModel(_ model: LocalModel) async {
         downloadErrors[model.id] = nil
 
-        do {
-            // Si déjà téléchargé, juste initialiser
-            if model.isReady {
-                downloadProgress[model.id] = 1.0
+        // Si déjà téléchargé, juste initialiser
+        if model.isReady {
+            downloadProgress[model.id] = 1.0
+            isDownloading[model.id] = false
+            await ParakeetTranscriptionProvider.shared.prewarm()
+            return
+        }
+
+        // Progression pendant le téléchargement SDK
+        for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
+            guard !Task.isCancelled else {
                 isDownloading[model.id] = false
-                await ParakeetTranscriptionProvider.shared.prewarm()
+                downloadProgress[model.id] = nil
                 return
             }
+            downloadProgress[model.id] = progress
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+        }
 
-            // Progression pendant le téléchargement SDK
-            for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
-                guard !Task.isCancelled else {
-                    isDownloading[model.id] = false
-                    downloadProgress[model.id] = nil
-                    return
-                }
-                downloadProgress[model.id] = progress
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-            }
+        // Télécharger via FluidAudio SDK
+        await ParakeetTranscriptionProvider.shared.prewarm()
 
-            // Télécharger via FluidAudio SDK
-            await ParakeetTranscriptionProvider.shared.prewarm()
+        // Recharger la liste pour rafraîchir isReady
+        availableModels = LocalModel.allModels()
 
-            // Vérifier si le modèle est bien téléchargé (vérification disque)
-            await MainActor.run {
-                // Recharger la liste pour rafraîchir isReady
-                availableModels = LocalModel.allModels()
-            }
-
-            if model.isReady {
-                downloadProgress[model.id] = 1.0
-                isDownloading[model.id] = false
-
-                // Rafraîchir la sélection
-                restoreSelectedModel()
-                saveSelectedModelId()
-            } else {
-                throw NSError(domain: "LocalModelProvider", code: 1, userInfo: [NSLocalizedDescriptionKey: "Le téléchargement a échoué"])
-            }
-        } catch {
-            downloadErrors[model.id] = error.localizedDescription
+        // Vérifier si le modèle est bien téléchargé (depuis la liste actualisée)
+        if let updatedModel = availableModels.first(where: { $0.id == model.id }), updatedModel.isReady {
+            downloadProgress[model.id] = 1.0
+            isDownloading[model.id] = false
+            restoreSelectedModel()
+            saveSelectedModelId()
+        } else {
+            downloadErrors[model.id] = "Le téléchargement a échoué"
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
         }
