@@ -24,6 +24,9 @@ final class LocalModelProvider: ObservableObject {
     /// Message d'erreur si téléchargement échoue
     @Published var errorMessage: String?
 
+    /// Erreur détaillée pour chaque modèle
+    @Published var downloadErrors: [String: String] = [:]
+
     private var downloadTask: Task<Void, Never>?
 
     private init() {
@@ -75,6 +78,13 @@ final class LocalModelProvider: ObservableObject {
         return getProvider(for: model)
     }
 
+    /// Sélectionne un modèle s'il est téléchargé
+    func selectModel(_ model: LocalModel) {
+        guard model.isReady else { return }
+        selectedModel = model
+        saveSelectedModelId()
+    }
+
     /// Télécharge un modèle
     func downloadModel(_ model: LocalModel) {
         guard !isDownloading[model.id, default: false] else { return }
@@ -107,6 +117,12 @@ final class LocalModelProvider: ObservableObject {
         downloadTask = nil
         isDownloading[model.id] = false
         downloadProgress[model.id] = nil
+    }
+
+    /// Réessaie le téléchargement après un échec
+    func retryDownload(_ model: LocalModel) {
+        downloadErrors[model.id] = nil
+        downloadModel(model)
     }
 
     /// Supprime un modèle téléchargé
@@ -185,12 +201,13 @@ final class LocalModelProvider: ObservableObject {
     }
 
     private func downloadCoreMLModel(_ model: LocalModel) {
-        // Utiliser FluidAudio SDK pour télécharger et initialiser les modèles Parakeet
-        // FluidAudio gère automatiquement le téléchargement et la mise en cache
         Task { @MainActor in
+            downloadErrors[model.id] = nil
+
+            // Utiliser FluidAudio SDK pour télécharger
             do {
-                // Simuler la progression pendant le téléchargement
-                for progress in stride(from: 0.1, through: 0.8, by: 0.1) {
+                // Progression indéterminée - on simule une progression basique
+                for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
                     guard !Task.isCancelled else {
                         isDownloading[model.id] = false
                         downloadProgress[model.id] = nil
@@ -203,15 +220,19 @@ final class LocalModelProvider: ObservableObject {
                 // Pré-charger le modèle Parakeet via FluidAudio
                 await ParakeetTranscriptionProvider.shared.prewarm()
 
-                // Marquer comme terminé
-                downloadProgress[model.id] = 1.0
-                isDownloading[model.id] = false
+                // Vérifier si le modèle est bien téléchargé
+                if model.isReady {
+                    downloadProgress[model.id] = 1.0
+                    isDownloading[model.id] = false
 
-                // Rafraîchir la sélection et sauvegarder
-                restoreSelectedModel()
-                saveSelectedModelId()
+                    // Rafraîchir la sélection
+                    restoreSelectedModel()
+                    saveSelectedModelId()
+                } else {
+                    throw NSError(domain: "LocalModelProvider", code: 1, userInfo: [NSLocalizedDescriptionKey: "Le téléchargement a échoué"])
+                }
             } catch {
-                errorMessage = "Erreur de téléchargement: \(error.localizedDescription)"
+                downloadErrors[model.id] = error.localizedDescription
                 isDownloading[model.id] = false
                 downloadProgress[model.id] = nil
             }
