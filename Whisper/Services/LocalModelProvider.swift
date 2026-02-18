@@ -80,9 +80,17 @@ final class LocalModelProvider: ObservableObject {
 
     /// Sélectionne un modèle s'il est téléchargé
     func selectModel(_ model: LocalModel) {
-        guard model.isReady else { return }
+        print("🔘 [SelectModel] Tentative de sélection: \(model.id)")
+        print("🔘 [SelectModel] isReady: \(model.isReady)")
+
+        guard model.isReady else {
+            print("❌ [SelectModel] Modèle non prêt, sélection refusée")
+            return
+        }
+
         selectedModel = model
         saveSelectedModelId()
+        print("✅ [SelectModel] Modèle sélectionné: \(model.id)")
     }
 
     /// Télécharge un modèle

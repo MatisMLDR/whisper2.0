@@ -44,7 +44,12 @@ struct ModelRowView: View {
     // MARK: - Subviews
     private var radioButton: some View {
         Button(action: {
-            guard isDownloaded else { return }
+            print("🔘 [ModelRowView] Radio button cliqué pour: \(model.id)")
+            print("🔘 [ModelRowView] isDownloaded: \(isDownloaded)")
+            guard isDownloaded else {
+                print("❌ [ModelRowView] Non téléchargé, action ignorée")
+                return
+            }
             onSelect()
         }) {
             ZStack {
