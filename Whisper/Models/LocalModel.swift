@@ -33,8 +33,8 @@ struct LocalModel: LocalAudioModel, Hashable {
         case .whisperKit:
             return isWhisperKitModelDownloaded()
         case .coreML:
-            // Pour Parakeet via FluidAudio, vérifier si les modèles sont chargés
-            return ParakeetTranscriptionProvider.isModelsDownloaded
+            // Vérifier si les fichiers CoreML existent sur le disque dans le cache FluidAudio
+            return areCoreMLModelsDownloaded()
         case .generic:
             return false
         }
@@ -83,6 +83,32 @@ struct LocalModel: LocalAudioModel, Hashable {
             let modelPath = snapshot.appendingPathComponent(modelName)
             return FileManager.default.fileExists(atPath: modelPath.path)
         }
+    }
+
+    /// Vérifie si les modèles CoreML Parakeet sont téléchargés dans le cache FluidAudio
+    private func areCoreMLModelsDownloaded() -> Bool {
+        guard providerType == .coreML else { return false }
+
+        // Le FluidAudio SDK stocke ses modèles dans ~/.cache/fluidaudio/Models/
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let fluidAudioCache = homeDir
+            .appendingPathComponent(".cache", isDirectory: true)
+            .appendingPathComponent("fluidaudio", isDirectory: true)
+            .appendingPathComponent("Models", isDirectory: true)
+
+        // Vérifier que le dossier de cache existe
+        guard FileManager.default.fileExists(atPath: fluidAudioCache.path) else {
+            return false
+        }
+
+        // Vérifier qu'il y a des fichiers .mlmodelc dans le cache
+        guard let contents = try? FileManager.default.contentsOfDirectory(at: fluidAudioCache, includingPropertiesForKeys: nil) else {
+            return false
+        }
+
+        // Parakeet TDT 0.6B v3 contient plusieurs fichiers .mlmodelc
+        let mlmodelcFiles = contents.filter { $0.pathExtension == "mlmodelc" }
+        return !mlmodelcFiles.isEmpty
     }
 
     // MARK: - Initializer
