@@ -68,6 +68,25 @@ final class LocalModelManager: NSObject, ObservableObject {
     /// Nombre de fichiers terminés pour le téléchargement en cours
     private var completedFiles: Int = 0
 
+    /// Intervalle minimum entre les mises à jour de progression (en secondes)
+    private let progressUpdateInterval: TimeInterval = 0.1
+
+    /// Thread-safe throttling pour les updates de progression
+    private let progressThrottleLock = NSLock()
+    private nonisolated(unsafe) var lastProgressUpdate: Date = .distantPast
+
+    /// Vérifie si le throttling permet une mise à jour (thread-safe)
+    private nonisolated func shouldUpdateProgress() -> Bool {
+        progressThrottleLock.lock()
+        defer { progressThrottleLock.unlock() }
+        let now = Date()
+        if now.timeIntervalSince(lastProgressUpdate) >= progressUpdateInterval {
+            lastProgressUpdate = now
+            return true
+        }
+        return false
+    }
+
     // Thread-safe storage for download tasks (accessed from background threads)
     private let downloadTasksBox = DownloadTasksBox()
 
@@ -295,14 +314,18 @@ extension LocalModelManager: URLSessionDownloadDelegate {
         guard let (modelId, _) = Self.shared.downloadTasksBox.get(downloadTask),
               totalBytesExpectedToWrite > 0 else { return }
 
+        // Throttling: limiter les mises à jour
+        guard Self.shared.shouldUpdateProgress() else { return }
+
         // Progression du fichier actuel (0.0 à 1.0)
         let currentFileProgress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
 
-        Task { @MainActor in
+        DispatchQueue.main.async {
+            let shared = Self.shared
             // Progression globale = (fichiers terminés + progression fichier actuel) / total fichiers
-            let totalFiles = Self.shared.parakeetBundles.count * Self.shared.mlmodelcInternalFiles.count
-            let overallProgress = (Double(Self.shared.completedFiles) + currentFileProgress) / Double(totalFiles)
-            Self.shared.downloadProgress[modelId] = min(overallProgress, 1.0)
+            let totalFiles = shared.parakeetBundles.count * shared.mlmodelcInternalFiles.count
+            let overallProgress = (Double(shared.completedFiles) + currentFileProgress) / Double(totalFiles)
+            shared.downloadProgress[modelId] = min(overallProgress, 1.0)
         }
     }
 

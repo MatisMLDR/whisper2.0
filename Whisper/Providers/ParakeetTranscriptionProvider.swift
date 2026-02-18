@@ -1,83 +1,130 @@
 import Foundation
 import AVFoundation
-import CoreML
+#if canImport(FluidAudio)
+import FluidAudio
+#endif
 
-/// Provider de transcription utilisant le modèle Parakeet TDT 0.6B v3 (CoreML)
-/// Le modèle est divisé en 6 fichiers .mlmodelc qui doivent être utilisés ensemble
+/// Provider de transcription utilisant le modèle Parakeet TDT 0.6B v3 via FluidAudio SDK.
+/// Gère automatiquement le téléchargement et le chargement des modèles CoreML.
 @MainActor
 final class ParakeetTranscriptionProvider: TranscriptionProvider {
     static let shared = ParakeetTranscriptionProvider()
 
-    private var models: [String: MLModel] = [:]
-    private var isLoadingModel = false
+    #if canImport(FluidAudio)
+    private var asrManager: AsrManager?
+    private var isInitializing = false
+    private var modelsLoaded = false
+    #endif
 
     private init() {}
 
     func transcribe(audioURL: URL) async throws -> String {
-        // S'assurer que le modèle est chargé
-        try await loadModelsIfNeeded()
-
-        guard models.count == 6 else {
-            throw TranscriptionError.modelsNotLoaded
+        #if canImport(FluidAudio)
+        // Initialiser l'ASR si pas déjà fait
+        if asrManager == nil && !isInitializing {
+            try await initializeASR()
         }
 
-        // Pour l'instant, nous retournons une implémentation placeholder
-        // L'architecture RNN-T de Parakeet est complexe et nécessite
-        // un traitement audio spécifique (mélan spectrogramme, préprocesseur, etc.)
-        //
-        // Pour une implémentation complète, il faudrait:
-        // 1. Prétraiter l'audio avec Preprocessor.mlmodelc
-        // 2. Extraire les features avec MelEncoder.mlmodelc
-        // 3. Encoder avec ParakeetEncoder_15s.mlmodelc
-        // 4. Décoder avec ParakeetDecoder.mlmodelc
-        // 5. Faire la décision de joint avec JointDecisionv2.mlmodelc
-        // 6. Post-traiter avec RNNTJoint.mlmodelc
-        //
-        // C'est une pipeline complexe qui nécessite plus de travail
-
-        throw TranscriptionError.notImplemented
-    }
-
-    // MARK: - Model Loading
-
-    private func loadModelsIfNeeded() async throws {
-        guard models.isEmpty, !isLoadingModel else { return }
-
-        isLoadingModel = true
-        defer { isLoadingModel = false }
-
-        // Obtenir les chemins des fichiers
-        guard let modelPaths = LocalModelManager.shared.getParakeetModelPaths() else {
-            throw TranscriptionError.modelsNotDownloaded
+        // Attendre que l'initialisation soit terminée
+        while isInitializing {
+            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconde
         }
 
-        // Charger tous les modèles CoreML
-        for (name, path) in modelPaths {
-            do {
-                models[name] = try MLModel(contentsOf: path)
-                print("Modèle chargé: \(name)")
-            } catch {
-                throw TranscriptionError.modelLoadFailed(name, error.localizedDescription)
+        guard let asrManager = asrManager else {
+            throw TranscriptionError.initializationFailed
+        }
+
+        // Transcrire directement depuis l'URL (FluidAudio gère la conversion de format)
+        do {
+            let result = try await asrManager.transcribe(audioURL, source: .system)
+
+            guard !result.text.isEmpty else {
+                throw TranscriptionError.emptyTranscription
             }
+
+            return result.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        } catch {
+            print("Erreur de transcription FluidAudio: \(error)")
+            throw TranscriptionError.transcriptionFailed(error.localizedDescription)
+        }
+        #else
+        // FluidAudio n'est pas disponible - lancer une erreur avec instructions
+        throw TranscriptionError.fluidAudioNotAvailable
+        #endif
+    }
+
+    #if canImport(FluidAudio)
+    /// Initialise l'ASR Manager avec les modèles Parakeet
+    /// Les modèles sont téléchargés automatiquement via FluidAudio SDK
+    private func initializeASR() async throws {
+        isInitializing = true
+        defer { isInitializing = false }
+
+        do {
+            // Télécharger et charger les modèles (mis en cache après le premier téléchargement)
+            // v3 = multilingue (FR, EN, etc.), v2 = anglais uniquement
+            let models = try await AsrModels.downloadAndLoad(version: .v3)
+
+            // Créer et initialiser l'ASR Manager avec configuration par défaut
+            asrManager = AsrManager(config: .default)
+            try await asrManager?.initialize(models: models)
+            modelsLoaded = true
+
+            print("Parakeet ASR initialisé avec succès")
+        } catch {
+            print("Erreur d'initialisation Parakeet: \(error)")
+            throw TranscriptionError.initializationFailed
         }
     }
+    #endif
+
+    // MARK: - Public Methods
+
+    /// Vérifie si les modèles sont téléchargés
+    var isModelsDownloaded: Bool {
+        #if canImport(FluidAudio)
+        return modelsLoaded
+        #else
+        return false
+        #endif
+    }
+
+    /// Pré-charge l'ASR pour un démarrage plus rapide
+    func prewarm() async {
+        #if canImport(FluidAudio)
+        if asrManager == nil && !isInitializing {
+            try? await initializeASR()
+        }
+        #endif
+    }
+
+    /// Libère les ressources
+    func cleanup() {
+        #if canImport(FluidAudio)
+        asrManager?.cleanup()
+        asrManager = nil
+        modelsLoaded = false
+        #endif
+    }
+
+    // MARK: - Error Types
 
     enum TranscriptionError: LocalizedError {
-        case modelsNotDownloaded
-        case modelsNotLoaded
-        case modelLoadFailed(String, String)
-        case notImplemented
+        case initializationFailed
+        case emptyTranscription
+        case transcriptionFailed(String)
+        case fluidAudioNotAvailable
 
         var errorDescription: String? {
             switch self {
-            case .modelsNotDownloaded:
-                return "Les modèles Parakeet ne sont pas téléchargés. Téléchargez-les d'abord dans les préférences."
-            case .modelsNotLoaded:
-                return "Les modèles Parakeet n'ont pas pu être chargés"
-            case .modelLoadFailed(let name, let message):
-                return "Échec du chargement du modèle \(name): \(message)"
-            case .notImplemented:
-                return "L'implémentation complète de Parakeet nécessite plus de travail. L'architecture RNN-T avec 6 fichiers séparés est complexe. Utilisez le mode API pour l'instant."
+            case .initializationFailed:
+                return "Impossible d'initialiser le moteur de transcription. Vérifiez votre connexion Internet pour le premier téléchargement."
+            case .emptyTranscription:
+                return "Aucun texte n'a pu être transcrit à partir de l'audio."
+            case .transcriptionFailed(let message):
+                return "Erreur de transcription: \(message)"
+            case .fluidAudioNotAvailable:
+                return "FluidAudio SDK n'est pas installé. Ajoutez le package https://github.com/FluidInference/FluidAudio.git (version 0.7.9) au projet Xcode."
             }
         }
     }

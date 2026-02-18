@@ -13,14 +13,7 @@ final class LocalModelProvider: ObservableObject {
     @Published var availableModels: [LocalModel] = LocalModel.allModels()
 
     /// Modèle sélectionné pour la transcription
-    @Published var selectedModel: LocalModel? {
-        didSet {
-            // Sauvegarder la sélection dans UserDefaults
-            if let modelId = selectedModel?.id {
-                UserDefaults.standard.set(modelId, forKey: "selectedLocalModelId")
-            }
-        }
-    }
+    @Published var selectedModel: LocalModel?
 
     /// État de téléchargement pour chaque modèle (ID: progression 0.0 à 1.0)
     @Published var downloadProgress: [String: Double] = [:]
@@ -32,7 +25,6 @@ final class LocalModelProvider: ObservableObject {
     @Published var errorMessage: String?
 
     private var downloadTask: Task<Void, Never>?
-    private var progressTimer: Timer?
 
     private init() {
         // Restaurer la sélection précédente
@@ -53,6 +45,13 @@ final class LocalModelProvider: ObservableObject {
             if let firstReady = availableModels.first(where: { $0.isReady }) {
                 selectedModel = firstReady
             }
+        }
+    }
+
+    /// Sauvegarde le modèle sélectionné dans UserDefaults
+    private func saveSelectedModelId() {
+        if let modelId = selectedModel?.id {
+            UserDefaults.standard.set(modelId, forKey: "selectedLocalModelId")
         }
     }
 
@@ -106,8 +105,6 @@ final class LocalModelProvider: ObservableObject {
     func cancelDownload(_ model: LocalModel) {
         downloadTask?.cancel()
         downloadTask = nil
-        progressTimer?.invalidate()
-        progressTimer = nil
         isDownloading[model.id] = false
         downloadProgress[model.id] = nil
     }
@@ -118,7 +115,8 @@ final class LocalModelProvider: ObservableObject {
         case .whisperKit:
             try? WhisperKitTranscriptionProvider.shared.clearCache()
         case .coreML:
-            LocalModelManager.shared.deleteModel(model)
+            // FluidAudio gère son propre cache, on libère juste les ressources
+            ParakeetTranscriptionProvider.shared.cleanup()
         case .generic:
             break
         }
@@ -126,10 +124,8 @@ final class LocalModelProvider: ObservableObject {
         // Si le modèle supprimé était sélectionné, changer la sélection
         if selectedModel?.id == model.id {
             selectedModel = availableModels.first(where: { $0.isReady })
+            saveSelectedModelId()
         }
-
-        // Rafraîchir l'état
-        objectWillChange.send()
     }
 
     /// Retourne les modèles WhisperKit disponibles
@@ -189,47 +185,36 @@ final class LocalModelProvider: ObservableObject {
     }
 
     private func downloadCoreMLModel(_ model: LocalModel) {
-        LocalModelManager.shared.downloadModel(model)
-
-        // Invalider l'ancien timer s'il existe
-        progressTimer?.invalidate()
-        progressTimer = nil
-
-        // Observer la progression depuis LocalModelManager
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
-            guard let self = self else {
-                timer.invalidate()
-                return
-            }
-
-            // Récupérer la progression depuis LocalModelManager
-            if let progress = LocalModelManager.shared.downloadProgress[model.id] {
-                Task { @MainActor in
-                    self.downloadProgress[model.id] = progress
-
-                    if progress >= 1.0 {
-                        self.isDownloading[model.id] = false
-                        timer.invalidate()
-                        self.progressTimer = nil
-                        // Rafraîchir la sélection
-                        self.restoreSelectedModel()
+        // Utiliser FluidAudio SDK pour télécharger et initialiser les modèles Parakeet
+        // FluidAudio gère automatiquement le téléchargement et la mise en cache
+        Task { @MainActor in
+            do {
+                // Simuler la progression pendant le téléchargement
+                for progress in stride(from: 0.1, through: 0.8, by: 0.1) {
+                    guard !Task.isCancelled else {
+                        isDownloading[model.id] = false
+                        downloadProgress[model.id] = nil
+                        return
                     }
+                    downloadProgress[model.id] = progress
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
                 }
-            }
 
-            // Vérifier si le téléchargement a été annulé
-            if !LocalModelManager.shared.isDownloading[model.id, default: false] {
-                Task { @MainActor in
-                    self.isDownloading[model.id] = false
-                    timer.invalidate()
-                    self.progressTimer = nil
-                }
-            }
-        }
+                // Pré-charger le modèle Parakeet via FluidAudio
+                await ParakeetTranscriptionProvider.shared.prewarm()
 
-        // S'assurer que le timer tourne sur le run loop principal
-        if let timer = progressTimer {
-            RunLoop.main.add(timer, forMode: .common)
+                // Marquer comme terminé
+                downloadProgress[model.id] = 1.0
+                isDownloading[model.id] = false
+
+                // Rafraîchir la sélection et sauvegarder
+                restoreSelectedModel()
+                saveSelectedModelId()
+            } catch {
+                errorMessage = "Erreur de téléchargement: \(error.localizedDescription)"
+                isDownloading[model.id] = false
+                downloadProgress[model.id] = nil
+            }
         }
     }
 

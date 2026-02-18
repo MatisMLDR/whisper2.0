@@ -33,7 +33,8 @@ struct LocalModel: LocalAudioModel, Hashable {
         case .whisperKit:
             return isWhisperKitModelDownloaded()
         case .coreML:
-            return areAllCoreMLFilesDownloaded()
+            // Pour Parakeet via FluidAudio, vérifier si les modèles sont chargés
+            return ParakeetTranscriptionProvider.shared.isModelsDownloaded
         case .generic:
             return false
         }
@@ -82,55 +83,6 @@ struct LocalModel: LocalAudioModel, Hashable {
             let modelPath = snapshot.appendingPathComponent(modelName)
             return FileManager.default.fileExists(atPath: modelPath.path)
         }
-    }
-
-    /// Liste des bundles CoreML requis pour le modèle Parakeet
-    static let parakeetRequiredBundles = [
-        "ParakeetDecoder.mlmodelc",
-        "Preprocessor.mlmodelc",
-        "JointDecisionv2.mlmodelc",
-        "MelEncoder.mlmodelc",
-        "RNNTJoint.mlmodelc",
-        "ParakeetEncoder_15s.mlmodelc"
-    ]
-
-    /// Fichiers internes requis dans chaque bundle .mlmodelc
-    static let mlmodelcInternalFiles = [
-        "coremldata.bin",
-        "model.mil",
-        "analytics/coremldata.bin",
-        "weights/weight.bin"
-    ]
-
-    /// Vérifie si tous les bundles CoreML sont téléchargés avec leurs fichiers internes
-    private func areAllCoreMLFilesDownloaded() -> Bool {
-        guard providerType == .coreML else { return false }
-
-        let requiredBundles: [String]
-        switch id {
-        case "parakeet-tdt-0.6b-v3":
-            requiredBundles = Self.parakeetRequiredBundles
-        default:
-            return false
-        }
-
-        guard let modelDir = getCoreMLModelDirectory() else { return false }
-
-        // Vérifier que chaque bundle contient tous les fichiers internes
-        return requiredBundles.allSatisfy { bundleName in
-            Self.mlmodelcInternalFiles.allSatisfy { internalFile in
-                let fullPath = modelDir.appendingPathComponent(bundleName).appendingPathComponent(internalFile)
-                return FileManager.default.fileExists(atPath: fullPath.path)
-            }
-        }
-    }
-
-    /// Retourne le répertoire de stockage des modèles CoreML
-    private func getCoreMLModelDirectory() -> URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("Whisper", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent(id, isDirectory: true)
     }
 
     // MARK: - Initializer
