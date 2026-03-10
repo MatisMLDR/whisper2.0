@@ -274,7 +274,7 @@ private struct MenuRowLabel: View {
             Group {
                 if let symbol {
                     Image(systemName: symbol)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(tint)
                 } else {
                     Color.clear
@@ -283,7 +283,7 @@ private struct MenuRowLabel: View {
             .frame(width: 18)
 
             Text(title)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(titleColor)
                 .lineLimit(multiline ? 3 : 1)
                 .multilineTextAlignment(.leading)
@@ -291,13 +291,13 @@ private struct MenuRowLabel: View {
 
             if let trailingText {
                 Text(trailingText)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
             } else if hasSubmenu {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .padding(.trailing, 2)
             }
