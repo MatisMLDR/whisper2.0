@@ -398,10 +398,12 @@ struct SettingsView: View {
 
                 SettingsCard {
                     HStack(alignment: .top, spacing: 16) {
-                        ShortcutKeyView(label: "Fn", subLabel: "Maintenir")
+                        ShortcutKeyView(label: appState.recordingModifier.label, subLabel: appState.recordingMode == .toggle ? "Basculer" : "Maintenir")
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Maintiens Fn pour dicter. Le profil actif détermine l’IA utilisée au moment où tu relâches la touche.")
+                            Text(appState.recordingMode == .toggle 
+                                 ? "Appuie sur \(appState.recordingModifier.label) pour dicter, puis ré-appuie pour transcrire. L'enregistrement utilise le profil IA sélectionné."
+                                 : "Maintiens \(appState.recordingModifier.label) pour dicter. Le profil actif détermine l’IA utilisée au moment où tu relâches la touche.")
                                 .font(.system(size: 14))
                                 .fixedSize(horizontal: false, vertical: true)
 
@@ -418,73 +420,132 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var transcriptionPane: some View {
-        VStack(spacing: 24) {
-            SettingsCard {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Tous les profils en mode Clé API utiliseront cette clé.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 24) {
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Enregistrement & Raccourci")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
 
-                    HStack(alignment: .center, spacing: 12) {
-                        SecureField("sk-...", text: $apiKeyInput)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 14, design: .monospaced))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
-
-                        Button {
-                            validateKey()
-                        } label: {
-                            Group {
-                                if isValidating {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Text("Valider")
+                SettingsCard {
+                    SettingsEntryRow(label: "Microphone") {
+                        Picker("", selection: Binding(
+                            get: { appState.microphoneService.selectedDevice?.id ?? "system" },
+                            set: { id in
+                                if id == "system" {
+                                    appState.selectMicrophone(nil)
+                                } else if let device = appState.availableMicrophones.first(where: { $0.id == id }) {
+                                    appState.selectMicrophone(device)
                                 }
                             }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 80, height: 32)
-                            .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
+                        )) {
+                            Text("Par défaut").tag("system")
+                            ForEach(appState.availableMicrophones) { device in
+                                Text(device.displayName).tag(device.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                    }
+
+                    SettingsDivider()
+
+                    SettingsEntryRow(label: "Touche de déclenchement") {
+                        Picker("", selection: $appState.recordingModifier) {
+                            ForEach(ShortcutModifier.allCases) { modifier in
+                                Text(modifier.label).tag(modifier)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                    }
+
+                    SettingsDivider()
+
+                    SettingsEntryRow(label: "Mode d'enregistrement") {
+                        Picker("", selection: $appState.recordingMode) {
+                            ForEach(RecordingMode.allCases) { mode in
+                                Text(mode.title).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                    }
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Clé API Globale")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                SettingsCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Tous les profils en mode Clé API utiliseront cette clé.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+
+                        HStack(alignment: .center, spacing: 12) {
+                            SecureField("sk-...", text: $apiKeyInput)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 14, design: .monospaced))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
+
+                            Button {
+                                validateKey()
+                            } label: {
+                                Group {
+                                    if isValidating {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Text("Valider")
+                                    }
+                                }
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                                .frame(width: 80, height: 32)
+                                .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating)
+                            .opacity((apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating) ? 0.5 : 1)
+                        }
+
+                        SettingsFactRow(label: "État", value: appState.hasAPIKey ? "Clé configurée" : "Aucune clé API", padding: 0)
+                    }
+                }
+
+                if case .success(let message) = apiFeedback {
+                    SettingsNotice(title: "Clé enregistrée", message: message, symbol: "checkmark.circle.fill", tint: .green)
+                }
+
+                if case .failure(let message) = apiFeedback {
+                    SettingsNotice(title: "Validation impossible", message: message, symbol: "xmark.circle.fill", tint: .red)
+                }
+
+                HStack(spacing: 16) {
+                    Link("Gérer mes clés OpenAI", destination: URL(string: "https://platform.openai.com/api-keys")!)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.blue)
+
+                    if appState.hasAPIKey {
+                        Button {
+                            appState.clearAPIKey()
+                            apiFeedback = .idle
+                        } label: {
+                            Text("Réinitialiser")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.red)
                         }
                         .buttonStyle(.plain)
-                        .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating)
-                        .opacity((apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating) ? 0.5 : 1)
                     }
-
-                    SettingsFactRow(label: "État", value: appState.hasAPIKey ? "Clé configurée" : "Aucune clé API", padding: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            if case .success(let message) = apiFeedback {
-                SettingsNotice(title: "Clé enregistrée", message: message, symbol: "checkmark.circle.fill", tint: .green)
-            }
-
-            if case .failure(let message) = apiFeedback {
-                SettingsNotice(title: "Validation impossible", message: message, symbol: "xmark.circle.fill", tint: .red)
-            }
-
-            HStack(spacing: 16) {
-                Link("Gérer mes clés OpenAI", destination: URL(string: "https://platform.openai.com/api-keys")!)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.blue)
-
-                if appState.hasAPIKey {
-                    Button {
-                        appState.clearAPIKey()
-                        apiFeedback = .idle
-                    } label: {
-                        Text("Réinitialiser")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -584,7 +645,11 @@ struct SettingsView: View {
     private var microphonePermissionMessage: String {
         switch appState.audioRecorder.permissionStatus {
         case .authorized:
-            return "Accès autorisé. Whisper peut enregistrer dès que tu maintiens Fn."
+            if appState.recordingMode == .toggle {
+                 return "Accès autorisé. Whisper peut enregistrer dès que tu appuies sur \(appState.recordingModifier.label)."
+            } else {
+                 return "Accès autorisé. Whisper peut enregistrer dès que tu maintiens \(appState.recordingModifier.label)."
+            }
         case .notDetermined:
             return "Le microphone n’a pas encore été autorisé sur ce Mac."
         case .denied:

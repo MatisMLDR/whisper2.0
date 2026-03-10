@@ -10,6 +10,19 @@ final class AppState: ObservableObject {
     @Published var hasAPIKey: Bool
     @Published private(set) var hasAccessibilityPermission: Bool
 
+    @Published var recordingModifier: ShortcutModifier {
+        didSet {
+            UserDefaults.standard.set(recordingModifier.rawValue, forKey: "recordingModifier")
+            keyboardService.modifierFlag = recordingModifier.flags
+        }
+    }
+
+    @Published var recordingMode: RecordingMode {
+        didSet {
+            UserDefaults.standard.set(recordingMode.rawValue, forKey: "recordingMode")
+        }
+    }
+
     let profileService = ProfileService.shared
     let localModelProvider = LocalModelProvider.shared
     let audioRecorder = AudioRecorder()
@@ -178,7 +191,11 @@ final class AppState: ObservableObject {
         }
 
         if isRecording {
-            return "Relâche Fn pour lancer la transcription avec \(activeProfileName)."
+            if recordingMode == .toggle {
+                return "Appuie à nouveau sur \(recordingModifier.label) pour lancer la transcription avec \(activeProfileName)."
+            } else {
+                return "Relâche \(recordingModifier.label) pour lancer la transcription avec \(activeProfileName)."
+            }
         }
 
         if let currentModeConfigurationIssue {
@@ -189,7 +206,11 @@ final class AppState: ObservableObject {
             return blockingIssue
         }
 
-        return "Profil actif: \(activeProfileName). Maintiens Fn, parle, puis relâche pour coller le texte."
+        if recordingMode == .toggle {
+            return "Profil actif: \(activeProfileName). Appuie sur \(recordingModifier.label), parle, puis ré-appuie pour coller le texte."
+        } else {
+            return "Profil actif: \(activeProfileName). Maintiens \(recordingModifier.label), parle, puis relâche pour coller le texte."
+        }
     }
 
     var statusIconName: String {
@@ -228,11 +249,20 @@ final class AppState: ObservableObject {
         hasAPIKey = KeychainHelper.shared.hasAPIKey
         hasAccessibilityPermission = TextInjector.hasAccessibilityPermission()
 
+        let savedModifier = UserDefaults.standard.string(forKey: "recordingModifier") ?? ShortcutModifier.function.rawValue
+        let modifier = ShortcutModifier(rawValue: savedModifier) ?? .function
+        self.recordingModifier = modifier
+        
+        let savedMode = UserDefaults.standard.string(forKey: "recordingMode") ?? RecordingMode.pushToTalk.rawValue
+        let mode = RecordingMode(rawValue: savedMode) ?? .pushToTalk
+        self.recordingMode = mode
+
         bindChildState()
         configureKeyboardMonitoring()
         syncActiveProfileConfiguration()
         refreshUIState()
 
+        keyboardService.modifierFlag = recordingModifier.flags
         keyboardService.startMonitoring()
 
         if !hasAccessibilityPermission {
@@ -418,15 +448,28 @@ final class AppState: ObservableObject {
     }
 
     private func configureKeyboardMonitoring() {
-        keyboardService.onFnPressed = { [weak self] in
+        keyboardService.onModifierPressed = { [weak self] in
             Task { @MainActor in
-                self?.startRecording()
+                guard let self = self else { return }
+                if self.recordingMode == .toggle {
+                    if self.isRecording {
+                        self.stopRecordingAndTranscribe()
+                    } else {
+                        self.startRecording()
+                    }
+                } else {
+                    // Push to talk
+                    self.startRecording()
+                }
             }
         }
 
-        keyboardService.onFnReleased = { [weak self] in
+        keyboardService.onModifierReleased = { [weak self] in
             Task { @MainActor in
-                self?.stopRecordingAndTranscribe()
+                guard let self = self else { return }
+                if self.recordingMode == .pushToTalk {
+                    self.stopRecordingAndTranscribe()
+                }
             }
         }
     }

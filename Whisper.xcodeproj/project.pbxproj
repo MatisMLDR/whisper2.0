@@ -14,6 +14,7 @@
 		19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19FFB3CD2F35F81A0030D49A /* CoreML.framework */; };
 		19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 19FFB3D02F3605840030D49A /* WhisperKit */; };
 		311180F8FF595F3F7D6FA232 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */; };
+		959CB06BE7471FA675B046F8 /* RecordingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5CA6DAA7FA6777213128629 /* RecordingMode.swift */; };
 		AAA000001 /* WhisperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000010 /* WhisperApp.swift */; };
 		AAA000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000011 /* AppState.swift */; };
 		AAA000003 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000012 /* MenuBarView.swift */; };
@@ -27,6 +28,7 @@
 		BBB000001 /* SoundService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000010 /* SoundService.swift */; };
 		BBB000002 /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000011 /* HistoryService.swift */; };
 		BBB000003 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000012 /* HistoryView.swift */; };
+		C8CCAF7EACF5A1F78DC93DCB /* ShortcutModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246E29BAF478C97E10623894 /* ShortcutModifier.swift */; };
 		CCC000001 /* TranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000010 /* TranscriptionProvider.swift */; };
 		CCC000002 /* TranscriptionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000011 /* TranscriptionMode.swift */; };
 		CCC000003 /* LocalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000012 /* LocalModel.swift */; };
@@ -45,6 +47,7 @@
 		19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneDevice.swift; sourceTree = "<group>"; };
 		19796D722F45CB79006B7F28 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
 		19FFB3CD2F35F81A0030D49A /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
+		246E29BAF478C97E10623894 /* ShortcutModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutModifier.swift; sourceTree = "<group>"; };
 		AAA000010 /* WhisperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperApp.swift; sourceTree = "<group>"; };
 		AAA000011 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		AAA000012 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -72,6 +75,7 @@
 		DDD000017 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
 		EEE000010 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
 		F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
+		F5CA6DAA7FA6777213128629 /* RecordingMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingMode.swift; sourceTree = "<group>"; };
 		FFF000010 /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
 		FFF000011 /* ProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -187,6 +191,8 @@
 				CCC000011 /* TranscriptionMode.swift */,
 				CCC000012 /* LocalModel.swift */,
 				DDD000015 /* LocalAudioModel.swift */,
+				F5CA6DAA7FA6777213128629 /* RecordingMode.swift */,
+				246E29BAF478C97E10623894 /* ShortcutModifier.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -301,6 +307,8 @@
 				EEE000001 /* ModelRowView.swift in Sources */,
 				FFF000001 /* Profile.swift in Sources */,
 				311180F8FF595F3F7D6FA232 /* WindowAccessor.swift in Sources */,
+				959CB06BE7471FA675B046F8 /* RecordingMode.swift in Sources */,
+				C8CCAF7EACF5A1F78DC93DCB /* ShortcutModifier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

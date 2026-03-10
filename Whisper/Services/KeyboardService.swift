@@ -3,15 +3,18 @@ import Foundation
 
 final class KeyboardService: ObservableObject {
     @Published private(set) var isMonitoring = false
+    
+    // The configured modifier flag to monitor (e.g. .function, .command, etc.)
+    var modifierFlag: NSEvent.ModifierFlags = .function
 
     private var globalMonitor: Any?
     private var localMonitor: Any?
-    private var fnIsPressed = false
+    private var isModifierPressed = false
 
-    /// Appelé quand Fn est pressé (début enregistrement)
-    var onFnPressed: (() -> Void)?
-    /// Appelé quand Fn est relâché (fin enregistrement)
-    var onFnReleased: (() -> Void)?
+    /// Appelé quand la touche configurée est pressée (début enregistrement)
+    var onModifierPressed: (() -> Void)?
+    /// Appelé quand la touche configurée est relâchée (fin enregistrement)
+    var onModifierReleased: (() -> Void)?
 
     func startMonitoring() {
         guard !isMonitoring else { return }
@@ -43,20 +46,20 @@ final class KeyboardService: ObservableObject {
     }
 
     private func handleFlagsChanged(_ event: NSEvent) {
-        let fnKeyPressed = event.modifierFlags.contains(.function)
+        let modifierKeyPressed = event.modifierFlags.contains(modifierFlag)
 
-        // Fn vient d'être pressé
-        if fnKeyPressed && !fnIsPressed {
-            fnIsPressed = true
+        // La touche vient d'être pressée
+        if modifierKeyPressed && !isModifierPressed {
+            isModifierPressed = true
             DispatchQueue.main.async { [weak self] in
-                self?.onFnPressed?()
+                self?.onModifierPressed?()
             }
         }
-        // Fn vient d'être relâché
-        else if !fnKeyPressed && fnIsPressed {
-            fnIsPressed = false
+        // La touche vient d'être relâchée
+        else if !modifierKeyPressed && isModifierPressed {
+            isModifierPressed = false
             DispatchQueue.main.async { [weak self] in
-                self?.onFnReleased?()
+                self?.onModifierReleased?()
             }
         }
     }
