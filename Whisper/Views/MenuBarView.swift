@@ -5,316 +5,157 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            statusCard
-            profilesSection
-            microphoneSection
+        MenuContainer {
+            VStack(spacing: 0) {
+                if let statusMessage {
+                    MenuRowLabel(
+                        title: statusMessage,
+                        symbol: appState.statusIconName,
+                        tint: statusTint,
+                        multiline: true
+                    )
 
-            if let blockingIssue = appState.blockingIssue,
-               !appState.isRecording,
-               !appState.isTranscribing {
-                WhisperInlineNotice(
-                    title: "Action requise",
-                    message: blockingIssue,
-                    symbol: "exclamationmark.triangle.fill",
-                    tint: .orange
-                )
+                    menuDivider
+                }
+
+                menuActionButton(
+                    title: "Historique…",
+                    symbol: "clock.arrow.circlepath"
+                ) {
+                    activateAndOpenWindow(.history, with: openWindow)
+                }
+
+                menuActionButton(
+                    title: "Réglages…",
+                    symbol: "gearshape",
+                    shortcut: "⌘,"
+                ) {
+                    activateAndOpenWindow(.settings, with: openWindow)
+                }
+
+                menuDivider
+
+                microphoneMenuRow
+                profileMenuRow
+
+                menuDivider
+
+                versionRow
+
+                menuActionButton(
+                    title: "Quitter Whisper",
+                    symbol: "power",
+                    shortcut: "⌘Q"
+                ) {
+                    NSApplication.shared.terminate(nil)
+                }
             }
-
-            if appState.hasHistoryEntries {
-                recentHistorySection
-            }
-
-            actionSection
         }
-        .padding(16)
-        .frame(width: 336)
+        .padding(6)
+        .frame(width: 312)
         .onAppear {
             appState.refreshMicrophones()
         }
     }
 
-    private var statusCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: appState.statusIconName)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(statusTint)
-                .frame(width: 36, height: 36)
-                .background(statusTint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Whisper")
-                    .font(.headline)
-
-                Text(appState.activeProfileName)
-                    .font(.subheadline.weight(.semibold))
-
-                Text(appState.statusDetail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-        }
-        .padding(14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var profilesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Profil")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button("Gérer") {
-                    activateAndOpenWindow(.settings, with: openWindow)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
-
-            Menu {
-                ForEach(appState.profiles) { profile in
-                    Button {
-                        appState.setActiveProfile(id: profile.id)
-                    } label: {
-                        profileMenuItem(
-                            title: profile.name,
-                            subtitle: appState.profileSummary(for: profile),
-                            symbol: profile.transcriptionMode.iconName,
-                            isSelected: appState.activeProfileId == profile.id
-                        )
-                    }
-                }
+    private var microphoneMenuRow: some View {
+        Menu {
+            Button {
+                appState.selectMicrophone(nil)
             } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: appState.transcriptionMode.iconName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(appState.activeProfileName)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Text(appState.profileSummary(for: appState.activeProfile ?? fallbackProfile))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(10)
-                .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .menuStyle(.borderlessButton)
-            .buttonStyle(.plain)
-
-            if let currentModeConfigurationIssue = appState.currentModeConfigurationIssue {
-                Text(currentModeConfigurationIssue)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var recentHistorySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Historique")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-
-                if appState.historyService.entries.count > 1 {
-                    Menu("Voir plus") {
-                        ForEach(Array(appState.historyService.entries.dropFirst().prefix(5))) { entry in
-                            Button {
-                                appState.copyToPasteboard(entry.text)
-                            } label: {
-                                historyMenuItem(
-                                    title: entry.text,
-                                    subtitle: relativeDate(entry.date)
-                                )
-                            }
-                        }
-
-                        Divider()
-
-                        Button("Ouvrir l’historique") {
-                            activateAndOpenWindow(.history, with: openWindow)
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .foregroundStyle(.secondary)
-                } else {
-                    Button("Voir tout") {
-                        activateAndOpenWindow(.history, with: openWindow)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                }
+                menuChoiceItem(
+                    title: "Micro par défaut du système",
+                    symbol: "slider.horizontal.3",
+                    isSelected: appState.microphoneService.selectedDevice == nil
+                )
             }
 
-            if let latestEntry = appState.historyService.entries.first {
+            if !appState.availableMicrophones.isEmpty {
+                Divider()
+            }
+
+            ForEach(appState.availableMicrophones) { device in
                 Button {
-                    appState.copyToPasteboard(latestEntry.text)
+                    appState.selectMicrophone(device)
                 } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(latestEntry.text)
-                                .font(.subheadline)
-                                .foregroundStyle(.primary)
-                                .lineLimit(3)
-                                .multilineTextAlignment(.leading)
-
-                            Text(relativeDate(latestEntry.date))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer(minLength: 0)
-
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var microphoneSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Microphone")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button {
-                    appState.refreshMicrophones()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Actualiser la liste")
-            }
-
-            Menu {
-                Button {
-                    appState.selectMicrophone(nil)
-                } label: {
-                    microphoneMenuItem(
-                        title: "Micro par défaut du système",
-                        symbol: "slider.horizontal.3",
-                        isSelected: appState.microphoneService.selectedDevice == nil
+                    menuChoiceItem(
+                        title: device.displayName,
+                        symbol: device.iconName,
+                        isSelected: appState.microphoneService.selectedDevice?.id == device.id
                     )
                 }
-
-                if !appState.availableMicrophones.isEmpty {
-                    Divider()
-                }
-
-                ForEach(appState.availableMicrophones) { device in
-                    Button {
-                        appState.selectMicrophone(device)
-                    } label: {
-                        microphoneMenuItem(
-                            title: device.displayName,
-                            symbol: device.iconName,
-                            isSelected: appState.microphoneService.selectedDevice?.id == device.id
-                        )
-                    }
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: currentMicrophoneIconName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(appState.selectedMicrophoneSummary)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Text("Choisir le micro utilisé")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(10)
-                .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .menuStyle(.borderlessButton)
-            .buttonStyle(.plain)
-
-            if !appState.microphoneService.isSelectedDeviceAvailable {
-                Text("Le dernier micro choisi n’est plus disponible. Le système utilisera le micro par défaut.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if appState.availableMicrophones.isEmpty {
-                Text("Aucun microphone détecté pour le moment.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        } label: {
+            MenuRowLabel(
+                title: microphoneMenuValue,
+                symbol: currentMicrophoneIconName,
+                hasSubmenu: true
+            )
         }
-        .padding(14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var actionSection: some View {
-        VStack(spacing: 8) {
-            Button {
-                activateAndOpenWindow(.settings, with: openWindow)
-            } label: {
-                Label("Réglages", systemImage: "gearshape")
-                    .frame(maxWidth: .infinity)
+    private var profileMenuRow: some View {
+        Menu {
+            ForEach(appState.profiles) { profile in
+                Button {
+                    appState.setActiveProfile(id: profile.id)
+                } label: {
+                    menuChoiceItem(
+                        title: profile.name,
+                        symbol: profile.transcriptionMode.iconName,
+                        isSelected: appState.activeProfileId == profile.id
+                    )
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(",", modifiers: .command)
-
-            Button {
-                activateAndOpenWindow(.history, with: openWindow)
-            } label: {
-                Label("Historique", systemImage: "clock.arrow.circlepath")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-
-            Button(role: .destructive) {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Label("Quitter", systemImage: "power")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut("q", modifiers: .command)
+        } label: {
+            MenuRowLabel(
+                title: appState.activeProfileName,
+                symbol: appState.transcriptionMode.iconName,
+                hasSubmenu: true
+            )
         }
-        .controlSize(.large)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var versionRow: some View {
+        MenuRowLabel(
+            title: appVersionString,
+            symbol: nil,
+            tint: .secondary,
+            titleColor: .secondary
+        )
+    }
+
+    private var menuDivider: some View {
+        Divider()
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+    }
+
+    private var statusMessage: String? {
+        if appState.isTranscribing {
+            return "Transcription en cours"
+        }
+
+        if appState.isRecording {
+            return "Enregistrement en cours"
+        }
+
+        if let currentModeConfigurationIssue = appState.currentModeConfigurationIssue {
+            return currentModeConfigurationIssue
+        }
+
+        return appState.blockingIssue
+    }
+
+    private var appVersionString: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        return "Version \(shortVersion)"
     }
 
     private var statusTint: Color {
@@ -334,11 +175,7 @@ struct MenuBarView: View {
             return .orange
         }
 
-        return .green
-    }
-
-    private var fallbackProfile: Profile {
-        Profile(name: "Profil", transcriptionMode: appState.transcriptionMode)
+        return .secondary
     }
 
     private var currentMicrophoneIconName: String {
@@ -354,84 +191,121 @@ struct MenuBarView: View {
         return "slider.horizontal.3"
     }
 
-    private func microphoneMenuItem(title: String, symbol: String, isSelected: Bool) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .frame(width: 16)
-
-            Text(title)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isSelected {
-                Image(systemName: "checkmark")
-            }
+    private var microphoneMenuValue: String {
+        if appState.availableMicrophones.isEmpty {
+            return "Aucun"
         }
+
+        if !appState.microphoneService.isSelectedDeviceAvailable {
+            return "Indisponible"
+        }
+
+        if appState.microphoneService.selectedDevice == nil {
+            return "Système"
+        }
+
+        return appState.selectedMicrophoneSummary
     }
 
-    private func profileMenuItem(title: String, subtitle: String, symbol: String, isSelected: Bool) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .frame(width: 16)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            if isSelected {
-                Image(systemName: "checkmark")
-            }
+    private func menuActionButton(
+        title: String,
+        symbol: String,
+        shortcut: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MenuRowLabel(
+                title: title,
+                symbol: symbol,
+                trailingText: shortcut
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func historyMenuItem(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(subtitle)
-                .font(.caption)
+    private func menuChoiceItem(title: String, symbol: String, isSelected: Bool) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
+                .frame(width: 16)
 
-    private func relativeDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: Date())
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+        }
     }
 }
 
-private struct WhisperInlineNotice: View {
-    let title: String
-    let message: String
-    let symbol: String
-    let tint: Color
+private struct MenuContainer<Content: View>: View {
+    @ViewBuilder let content: Content
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: symbol)
-                .foregroundStyle(tint)
+        VStack(spacing: 0) {
+            content
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+        )
+    }
+}
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Text(message)
-                    .font(.caption)
+private struct MenuRowLabel: View {
+    let title: String
+    let symbol: String?
+    var tint: Color = .primary
+    var titleColor: Color = .primary
+    var trailingText: String? = nil
+    var hasSubmenu: Bool = false
+    var multiline: Bool = false
+
+    var body: some View {
+        HStack(alignment: multiline ? .top : .center, spacing: 10) {
+            Group {
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(tint)
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: 18)
+
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(titleColor)
+                .lineLimit(multiline ? 3 : 1)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let trailingText {
+                Text(trailingText)
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else if hasSubmenu {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.trailing, 2)
             }
         }
-        .padding(12)
-        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
