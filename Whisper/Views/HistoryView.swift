@@ -12,17 +12,18 @@ struct HistoryView: View {
                     description: Text("L’historique conserve les 24 dernières heures pour retrouver rapidement une dictée récente.")
                 )
             } else {
-                List {
-                    ForEach(appState.historyService.entries) { entry in
-                        HistoryEntryRow(
-                            entry: entry,
-                            onCopy: { appState.copyToPasteboard(entry.text) },
-                            onDelete: { appState.historyService.delete(entry) }
-                        )
-                        .listRowInsets(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14))
+                Form {
+                    Section {
+                        ForEach(appState.historyService.entries) { entry in
+                            HistoryEntryRow(
+                                entry: entry,
+                                onCopy: { appState.copyToPasteboard(entry.text) },
+                                onDelete: { appState.historyService.delete(entry) }
+                            )
+                        }
                     }
                 }
-                .listStyle(.inset)
+                .formStyle(.grouped)
             }
         }
         .navigationTitle("Historique")
@@ -71,8 +72,7 @@ private struct HistoryEntryRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
         }
-        .padding(14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.vertical, 4)
         .contextMenu {
             Button("Copier", action: onCopy)
             Button("Supprimer", role: .destructive, action: onDelete)
