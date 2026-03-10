@@ -13,6 +13,7 @@
 		19796D782F45F7E1006B7F28 /* FluidAudioEspeak in Frameworks */ = {isa = PBXBuildFile; productRef = 19796D772F45F7E1006B7F28 /* FluidAudioEspeak */; };
 		19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19FFB3CD2F35F81A0030D49A /* CoreML.framework */; };
 		19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 19FFB3D02F3605840030D49A /* WhisperKit */; };
+		311180F8FF595F3F7D6FA232 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */; };
 		AAA000001 /* WhisperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000010 /* WhisperApp.swift */; };
 		AAA000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000011 /* AppState.swift */; };
 		AAA000003 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000012 /* MenuBarView.swift */; };
@@ -70,6 +71,7 @@
 		DDD000015 /* LocalAudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioModel.swift; sourceTree = "<group>"; };
 		DDD000017 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
 		EEE000010 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
+		F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
 		FFF000010 /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
 		FFF000011 /* ProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -147,6 +149,7 @@
 			children = (
 				AAA000018 /* KeychainHelper.swift */,
 				AAA000019 /* Constants.swift */,
+				F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -297,6 +300,7 @@
 				FFF000002 /* ProfileService.swift in Sources */,
 				EEE000001 /* ModelRowView.swift in Sources */,
 				FFF000001 /* Profile.swift in Sources */,
+				311180F8FF595F3F7D6FA232 /* WindowAccessor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

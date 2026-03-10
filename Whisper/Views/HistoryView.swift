@@ -24,8 +24,13 @@ struct HistoryView: View {
                     }
                 }
                 .formStyle(.grouped)
+                // Appliquer la transparence au formulaire macOS natif
+                .scrollContentBackground(.hidden) 
             }
         }
+        .background(.ultraThinMaterial)
+        .background(Color.black.opacity(0.15))
+        .preferredColorScheme(.dark)
         .navigationTitle("Historique")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

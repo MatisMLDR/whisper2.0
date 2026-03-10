@@ -30,17 +30,22 @@ struct WhisperApp: App {
         Window("Réglages", id: AppWindowID.settings.rawValue) {
             SettingsView()
                 .environmentObject(appState)
+                // Appliquer un fond transparent au niveau de la fenêtre macOS
+                .background(WindowAccessor())
         }
         .defaultSize(width: 920, height: 620)
         .windowResizability(.contentMinSize)
+        .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
 
         Window("Historique", id: AppWindowID.history.rawValue) {
             HistoryView()
                 .environmentObject(appState)
+                .background(WindowAccessor())
         }
         .defaultSize(width: 560, height: 540)
         .windowResizability(.contentMinSize)
+        .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
     }
 

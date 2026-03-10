@@ -4,13 +4,14 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
-    @State private var selection: SettingsPane? = .profiles
+    @State private var selection: SettingsPane? = .general
     @State private var apiKeyInput = ""
     @State private var isValidating = false
     @State private var apiFeedback: APIValidationFeedback = .idle
+    @AppStorage("isSidebarCollapsed") private var isSidebarCollapsed = false
 
     private var currentPane: SettingsPane {
-        selection ?? .profiles
+        selection ?? .general
     }
 
     var body: some View {
@@ -23,8 +24,10 @@ struct SettingsView: View {
             mainContent
         }
         .frame(minWidth: 920, minHeight: 620)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .preferredColorScheme(.dark)
+        // A translucent background for the whole window
+        .background(.ultraThinMaterial)
+        .background(Color.black.opacity(0.2))
+        .preferredColorScheme(.dark) // Force dark mode for the premium look
         .onAppear {
             appState.refreshUIState()
         }
@@ -36,62 +39,84 @@ struct SettingsView: View {
     // MARK: - Layout Components
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: isSidebarCollapsed ? .center : .leading, spacing: 0) {
+            // Window controls spacing
             Color.clear.frame(height: 38)
             
             ScrollView {
                 VStack(spacing: 6) {
                     ForEach(SettingsPane.allCases) { pane in
-                        SidebarItem(pane: pane, isSelected: selection == pane) {
+                        SidebarItem(pane: pane, isSelected: selection == pane, isCollapsed: isSidebarCollapsed) {
                             selection = pane
                         }
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, isSidebarCollapsed ? 8 : 12)
                 .padding(.vertical, 8)
             }
             
             Spacer()
             
+            // Pill at bottom (or just icon if collapsed)
             Button(action: {}) {
-                HStack {
-                    Text("Whisper")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.primary)
-                    
-                    Text(appVersion)
-                        .font(.system(size: 10, weight: .bold))
+                if isSidebarCollapsed {
+                    Image(systemName: "triangle")
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.primary.opacity(0.7))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.1), in: Capsule())
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        )
+                } else {
+                    HStack {
+                        Text("Whisper")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.primary)
+                        
+                        Text(appVersion)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.primary.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.1), in: Capsule())
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
             }
             .buttonStyle(.plain)
-            .padding(14)
+            .padding(isSidebarCollapsed ? 8 : 14)
+            .padding(.bottom, 6)
         }
-        .frame(width: 240)
+        .frame(width: isSidebarCollapsed ? 68 : 240)
+        // A slightly darker background for the sidebar
         .background(Color.black.opacity(0.15)) 
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarCollapsed)
     }
 
     private var mainContent: some View {
         VStack(spacing: 0) {
+            // Top Bar
             HStack {
                 Button(action: {
-                    // Toggle sidebar if needed, but not standard for this design
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isSidebarCollapsed.toggle()
+                    }
                 }) {
                     Image(systemName: "sidebar.left")
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
+                        .padding(4)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -102,7 +127,7 @@ struct SettingsView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                     
-                    Image(systemName: "headphones")
+                    Image(systemName: "headphones") // or mic
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -114,20 +139,24 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    // Pane Header
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(currentPane.title)
                                 .font(.system(size: 20, weight: .bold))
                             
-                            Text(currentPane.subtitle)
-                                .font(.system(size: 14))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
+                            if !currentPane.subtitle.isEmpty {
+                                Text(currentPane.subtitle)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                         
                         Spacer()
                         
+                        // Optional primary action button based on pane
                         if currentPane == .profiles {
                             Button {
                                 appState.createProfile()
@@ -138,6 +167,19 @@ struct SettingsView: View {
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
                                     .background(Color.blue)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        } else if currentPane == .history && !appState.historyService.entries.isEmpty {
+                            Button {
+                                appState.historyService.clearAll()
+                            } label: {
+                                Text("Tout effacer")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.red.opacity(0.8))
                                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             }
                             .buttonStyle(.plain)
@@ -164,7 +206,8 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.3))
+        // The main content area background matches the "frosted gray" feel better
+        .background(Color.black.opacity(0.05))
     }
 
     // MARK: - Panes
@@ -172,16 +215,54 @@ struct SettingsView: View {
     @ViewBuilder
     private var paneContent: some View {
         switch currentPane {
-        case .profiles:
-            profilesPane
         case .general:
             generalPane
+        case .profiles:
+            profilesPane
+        case .history:
+            historyPane
         case .transcription:
             transcriptionPane
         case .models:
             modelsPane
         case .permissions:
             permissionsPane
+        }
+    }
+
+    @ViewBuilder
+    private var historyPane: some View {
+        VStack(spacing: 24) {
+            if appState.historyService.entries.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                    Text("Aucune transcription")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("L’historique conserve les 24 dernières heures pour retrouver rapidement une dictée récente.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .padding(.vertical, 60)
+                .frame(maxWidth: .infinity)
+            } else {
+                SettingsCard {
+                    ForEach(Array(appState.historyService.entries.enumerated()), id: \.element.id) { index, entry in
+                        HistoryEntryCustomRow(
+                            entry: entry,
+                            onCopy: { appState.copyToPasteboard(entry.text) },
+                            onDelete: { appState.historyService.delete(entry) }
+                        )
+
+                        if index < appState.historyService.entries.count - 1 {
+                            SettingsDivider()
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -609,8 +690,9 @@ struct SettingsView: View {
 private enum SettingsPane: CaseIterable, Hashable, Identifiable {
     case general
     case profiles
-    case transcription
+    case transcription // Configuration/Sound
     case models
+    case history
     case permissions
 
     var id: Self { self }
@@ -621,16 +703,18 @@ private enum SettingsPane: CaseIterable, Hashable, Identifiable {
         case .profiles: return "Modes"
         case .transcription: return "Configuration"
         case .models: return "Models library"
+        case .history: return "History"
         case .permissions: return "Permissions"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .general: return "Vue d’ensemble, profil actif et usage quotidien."
+        case .general: return ""
         case .profiles: return "Create modes designed for your tasks, whether you're writing a message, speaking another language, or running a meeting..."
         case .transcription: return "Configuration globale de la clé API utilisée par les profils Cloud."
         case .models: return "Téléchargement et gestion des modèles utilisés par les profils locaux."
+        case .history: return ""
         case .permissions: return "Statut des autorisations requises pour le micro et le collage."
         }
     }
@@ -641,6 +725,7 @@ private enum SettingsPane: CaseIterable, Hashable, Identifiable {
         case .profiles: return "sparkles"
         case .transcription: return "gearshape.fill"
         case .models: return "books.vertical.fill"
+        case .history: return "clock.fill"
         case .permissions: return "lock.shield.fill"
         }
     }
@@ -651,6 +736,7 @@ private enum SettingsPane: CaseIterable, Hashable, Identifiable {
         case .profiles: return .blue
         case .transcription: return Color.gray.opacity(0.8)
         case .models: return Color.gray.opacity(0.8)
+        case .history: return .indigo
         case .permissions: return Color.gray.opacity(0.8)
         }
     }
@@ -667,6 +753,7 @@ private enum APIValidationFeedback {
 private struct SidebarItem: View {
     let pane: SettingsPane
     let isSelected: Bool
+    let isCollapsed: Bool
     let action: () -> Void
     @State private var isHovered = false
 
@@ -683,13 +770,15 @@ private struct SidebarItem: View {
                         .foregroundStyle(.white)
                 }
 
-                Text(pane.title)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : .primary.opacity(0.8))
-                
-                Spacer()
+                if !isCollapsed {
+                    Text(pane.title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(isSelected ? .white : .primary.opacity(0.8))
+                    
+                    Spacer()
+                }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, isCollapsed ? 8 : 10)
             .padding(.vertical, 8)
             .contentShape(Rectangle())
             .background(
@@ -918,6 +1007,66 @@ private struct ProfileRow: View {
         .onHover { hovering in
             isHovered = hovering
         }
+    }
+}
+
+private struct HistoryEntryCustomRow: View {
+    let entry: TranscriptionEntry
+    let onCopy: () -> Void
+    let onDelete: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(timeLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+                
+                if isHovered {
+                    HStack(spacing: 12) {
+                        Button(action: onCopy) {
+                            Image(systemName: "doc.on.doc")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Copier")
+
+                        Button(role: .destructive, action: onDelete) {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Supprimer")
+                    }
+                }
+            }
+
+            Text(entry.text)
+                .font(.system(size: 14))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .contextMenu {
+            Button("Copier", action: onCopy)
+            Button("Supprimer", role: .destructive, action: onDelete)
+        }
+    }
+
+    private var timeLabel: String {
+        let relativeFormatter = RelativeDateTimeFormatter()
+        relativeFormatter.locale = Locale(identifier: "fr_FR")
+        relativeFormatter.unitsStyle = .short
+        return relativeFormatter.localizedString(for: entry.date, relativeTo: Date())
     }
 }
 
