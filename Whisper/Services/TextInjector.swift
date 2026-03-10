@@ -33,7 +33,7 @@ final class TextInjector {
         pasteboard.setString(text, forType: .string)
 
         // 5. Activer l'app cible
-        targetApp.activate(options: [.activateIgnoringOtherApps])
+        targetApp.activate()
 
         // 6. Attendre que l'app soit vraiment active (augmenté à 0.5s)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -74,7 +74,7 @@ final class TextInjector {
         var error: NSDictionary?
         let appleScript = NSAppleScript(source: script)
 
-        if let result = appleScript?.executeAndReturnError(&error),
+        if appleScript?.executeAndReturnError(&error) != nil,
            error == nil {
             print("✅ TextInjector: Collé via AppleScript")
             return

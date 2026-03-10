@@ -49,7 +49,7 @@ final class MicrophoneService: ObservableObject {
                 let device = MicrophoneDevice(
                     id: captureDevice.uniqueID,
                     name: captureDevice.localizedName,
-                    manufacturer: captureDevice.manufacturer ?? "Inconnu",
+                    manufacturer: captureDevice.manufacturer,
                     isBuiltIn: captureDevice.modelID.contains("BuiltIn"),
                     audioDeviceID: audioDeviceID
                 )

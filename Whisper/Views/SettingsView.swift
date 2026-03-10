@@ -1,478 +1,548 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
-    @State private var apiKeyInput: String = ""
-    @State private var isValidating: Bool = false
-    @State private var showSuccessHint: Bool = false
-    @State private var showErrorHint: Bool = false
+    @State private var selection: SettingsPane? = .general
+    @State private var apiKeyInput = ""
+    @State private var isValidating = false
+    @State private var apiFeedback: APIValidationFeedback = .idle
 
-    @StateObject private var microphoneService = MicrophoneService.shared
-
-    private let accentColor = Color(nsColor: .controlAccentColor)
+    private var currentPane: SettingsPane {
+        selection ?? .general
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerSection
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    transcriptionModeSection
-
-                    microphoneSection
-
-                    if appState.transcriptionMode == .api {
-                        apiConfigurationSection
+        NavigationSplitView {
+            List(SettingsPane.allCases, selection: $selection) { pane in
+                Label(pane.title, systemImage: pane.iconName)
+                    .tag(Optional(pane))
+            }
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210)
+        } detail: {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        header
+                        paneContent
                     }
-
-                    if appState.transcriptionMode == .local {
-                        localModelsSection
-                    }
-
-                    usageSection
-                    aboutSection
+                    .padding(28)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(24)
+
+                Divider()
+                footer
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
+        }
+        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 920, minHeight: 620)
+        .onAppear {
+            appState.refreshUIState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            appState.refreshUIState()
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(currentPane.title)
+                .font(.title2.weight(.semibold))
+
+            Text(currentPane.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if let blockingIssue = appState.blockingIssue,
+               !appState.isRecording,
+               !appState.isTranscribing {
+                SettingsNotice(
+                    title: "À finaliser",
+                    message: blockingIssue,
+                    symbol: "exclamationmark.triangle.fill",
+                    tint: .orange
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var paneContent: some View {
+        switch currentPane {
+        case .general:
+            generalPane
+        case .transcription:
+            transcriptionPane
+        case .models:
+            modelsPane
+        case .permissions:
+            permissionsPane
+        }
+    }
+
+    private var generalPane: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsCard(title: "État", systemImage: "checkmark.circle") {
+                SettingsFactRow(label: "Whisper", value: appState.statusTitle)
+                SettingsFactRow(label: "Mode actif", value: appState.transcriptionMode.title)
+                SettingsFactRow(label: "Fournisseur", value: appState.providerSummary)
+                SettingsFactRow(label: "Microphone", value: appState.selectedMicrophoneSummary)
+                SettingsFactRow(
+                    label: "Historique",
+                    value: appState.hasHistoryEntries ? "\(appState.historyService.entries.count) éléments sur 24 h" : "Aucune transcription"
+                )
             }
 
-            footerSection
+            SettingsCard(title: "Utilisation", systemImage: "command") {
+                HStack(alignment: .top, spacing: 14) {
+                    ShortcutKeyView(label: "Fn", subLabel: "Maintenir")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Maintiens Fn pour dicter. Relâche pour lancer la transcription et coller le texte à l’emplacement du curseur.")
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text("Whisper reste volontairement minimal: une seule action, un retour immédiat, pas d’écran superflu pendant l’usage.")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.subheadline)
+                }
+            }
+
+            SettingsCard(title: "Configuration locale", systemImage: "cpu") {
+                SettingsFactRow(label: "Modèle prêt", value: appState.localModelSummary)
+                SettingsFactRow(label: "Résumé", value: appState.activeModeSummary)
+            }
         }
-        .frame(width: 500, height: 600)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    // MARK: - Computed Properties
-
-    private func isSelected(_ model: LocalModel) -> Bool {
-        appState.localModelProvider.selectedModel?.id == model.id
-    }
-
-    // MARK: - Sections
-
-    private var transcriptionModeSection: some View {
-        SettingsSection(title: "MODE DE TRANSCRIPTION", icon: "arrow.triangle.2.circlepath") {
-            VStack(alignment: .leading, spacing: 12) {
-                Picker("", selection: $appState.transcriptionMode) {
+    private var transcriptionPane: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsCard(title: "Mode de transcription", systemImage: appState.transcriptionMode.iconName) {
+                Picker("Mode", selection: Binding(
+                    get: { appState.transcriptionMode },
+                    set: { appState.setTranscriptionMode($0) }
+                )) {
                     ForEach(TranscriptionMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(mode.title).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
 
-                HStack(spacing: 8) {
-                    Image(systemName: appState.transcriptionMode == .api ? "cloud" : "cpu")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    Text(appState.transcriptionMode == .api
-                        ? "Transcription via l'API OpenAI (plus précise, nécessite Internet)"
-                        : "Transcription locale (privée, fonctionne hors ligne)")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
+                Text(appState.activeModeSummary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        }
-    }
 
-    private var microphoneSection: some View {
-        SettingsSection(title: "MICROPHONE", icon: "mic.fill") {
-            VStack(alignment: .leading, spacing: 12) {
-                if microphoneService.availableDevices.isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "mic.slash")
-                            .foregroundColor(.orange)
-                        Text("Aucun microphone détecté")
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    Picker(selection: $microphoneService.selectedDevice, label: EmptyView()) {
-                        ForEach(microphoneService.availableDevices) { device in
-                            HStack {
-                                Image(systemName: device.iconName)
-                                Text(device.displayName)
+            if appState.transcriptionMode == .api {
+                SettingsCard(title: "OpenAI", systemImage: "key") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .center, spacing: 12) {
+                            SecureField("sk-...", text: $apiKeyInput)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+
+                            Button {
+                                validateKey()
+                            } label: {
+                                if isValidating {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Text("Valider")
+                                }
                             }
-                            .tag(device as MicrophoneDevice?)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating)
                         }
-                    }
-                    .pickerStyle(.menu)
 
-                    if !microphoneService.isSelectedDeviceAvailable {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text("Microphone déconnecté")
-                                .foregroundColor(.orange)
+                        SettingsFactRow(label: "État", value: appState.hasAPIKey ? "Clé configurée" : "Aucune clé API")
+
+                        if case .success(let message) = apiFeedback {
+                            SettingsNotice(title: "Clé enregistrée", message: message, symbol: "checkmark.circle.fill", tint: .green)
                         }
-                    }
-                }
 
-                Button(action: { microphoneService.refreshDevices() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.clockwise")
-                        Text("Actualiser")
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(accentColor)
-            }
-        }
-    }
+                        if case .failure(let message) = apiFeedback {
+                            SettingsNotice(title: "Validation impossible", message: message, symbol: "xmark.circle.fill", tint: .red)
+                        }
 
-    private var apiConfigurationSection: some View {
-        SettingsSection(title: "CONFIGURATION API", icon: "key.fill") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    SecureField("sk-...", text: $apiKeyInput)
-                        .textFieldStyle(RefinedTextFieldStyle())
-                        .frame(maxWidth: .infinity)
+                        HStack(spacing: 12) {
+                            Link("Gérer mes clés OpenAI", destination: URL(string: "https://platform.openai.com/api-keys")!)
 
-                    Button(action: validateKey) {
-                        HStack(spacing: 6) {
-                            if isValidating {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .scaleEffect(0.6)
-                            } else {
-                                Text("Valider")
-                                    .font(.system(size: 11, weight: .medium))
+                            if appState.hasAPIKey {
+                                Button("Réinitialiser") {
+                                    appState.clearAPIKey()
+                                    apiFeedback = .idle
+                                }
                             }
                         }
-                        .frame(width: 70, height: 24)
                     }
-                    .buttonStyle(RefinedButtonStyle(isPrimary: true))
-                    .disabled(apiKeyInput.isEmpty || isValidating)
                 }
+            } else {
+                SettingsCard(title: "Mode local", systemImage: "externaldrive.badge.checkmark") {
+                    SettingsFactRow(label: "Modèle sélectionné", value: appState.localModelSummary)
 
-                HStack(spacing: 12) {
-                    statusIndicator
+                    Text("Télécharge un modèle dans la section Modèles locaux pour préparer l’usage hors ligne.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
 
-                    Spacer()
+    private var modelsPane: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if appState.transcriptionMode != .local {
+                SettingsNotice(
+                    title: "Mode cloud actif",
+                    message: "Tu peux préparer les modèles locaux à l’avance, puis repasser en mode Local quand tu veux.",
+                    symbol: "info.circle.fill",
+                    tint: .blue
+                )
+            }
 
-                    Link(destination: URL(string: "https://platform.openai.com/api-keys")!) {
-                        HStack(spacing: 4) {
-                            Text("Obtenir une clé")
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 9))
+            SettingsCard(title: "Bibliothèque", systemImage: "shippingbox") {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(appState.localModelProvider.availableModels) { model in
+                        ModelRowView(
+                            model: model,
+                            isSelected: appState.localModelProvider.selectedModel?.id == model.id,
+                            isDownloading: appState.localModelProvider.isDownloading[model.id] ?? false,
+                            downloadProgress: appState.localModelProvider.downloadProgress[model.id] ?? 0,
+                            errorMessage: appState.localModelProvider.downloadErrors[model.id]
+                        ) {
+                            appState.localModelProvider.selectModel(model)
+                        } onDownload: {
+                            appState.localModelProvider.downloadModel(model)
+                        } onCancel: {
+                            appState.localModelProvider.cancelDownload(model)
+                        } onDelete: {
+                            appState.localModelProvider.deleteModel(model)
+                        } onRetry: {
+                            appState.localModelProvider.retryDownload(model)
                         }
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(accentColor.opacity(0.9))
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { inside in
-                        if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                     }
                 }
             }
         }
     }
 
-    private var localModelsSection: some View {
-        SettingsSection(title: "MODÈLES LOCAUX", icon: "cpu.fill") {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(appState.localModelProvider.availableModels) { model in
-                    ModelRowView(
-                        model: model,
-                        isSelected: isSelected(model),
-                        isDownloading: appState.localModelProvider.isDownloading[model.id] ?? false,
-                        downloadProgress: appState.localModelProvider.downloadProgress[model.id] ?? 0,
-                        errorMessage: appState.localModelProvider.downloadErrors[model.id]
-                    ) {
-                        // onSelect
-                        appState.localModelProvider.selectModel(model)
-                    } onDownload: {
-                        // onDownload
-                        appState.localModelProvider.downloadModel(model)
-                    } onCancel: {
-                        // onCancel
-                        appState.localModelProvider.cancelDownload(model)
-                    } onDelete: {
-                        // onDelete
-                        appState.localModelProvider.deleteModel(model)
-                    } onRetry: {
-                        // onRetry
-                        appState.localModelProvider.retryDownload(model)
-                    }
+    private var permissionsPane: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsCard(title: "Microphone", systemImage: "mic") {
+                PermissionRow(
+                    title: "Accès au micro",
+                    message: microphonePermissionMessage,
+                    isGranted: appState.audioRecorder.permissionStatus == .authorized,
+                    primaryActionTitle: microphonePrimaryActionTitle,
+                    primaryAction: handleMicrophonePrimaryAction,
+                    secondaryActionTitle: microphoneSecondaryActionTitle,
+                    secondaryAction: microphoneSecondaryAction
+                )
+            }
 
-                    if model.id != appState.localModelProvider.availableModels.last?.id {
-                        Divider()
-                            .padding(.vertical, 8)
-                    }
-                }
+            SettingsCard(title: "Accessibilité", systemImage: "keyboard") {
+                PermissionRow(
+                    title: "Collage automatique",
+                    message: accessibilityPermissionMessage,
+                    isGranted: appState.hasAccessibilityPermission,
+                    primaryActionTitle: appState.hasAccessibilityPermission ? "Actualiser" : "Autoriser l’accessibilité",
+                    primaryAction: {
+                        if appState.hasAccessibilityPermission {
+                            appState.refreshUIState()
+                        } else {
+                            appState.requestAccessibilityPermission()
+                        }
+                    },
+                    secondaryActionTitle: appState.hasAccessibilityPermission ? nil : "Ouvrir Réglages Système",
+                    secondaryAction: appState.hasAccessibilityPermission ? nil : { appState.openAccessibilityPrivacySettings() }
+                )
             }
         }
     }
 
-    private var usageSection: some View {
-        SettingsSection(title: "UTILISATION", icon: "command") {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 16) {
-                    ShortcutKeyView(label: "Fn", subLabel: "Maintenir")
+    private var footer: some View {
+        HStack {
+            Text("Whisper \(appVersion)")
+                .foregroundStyle(.secondary)
 
-                    Text("Maintenez la touche Fn enfoncée pour parler. Relâchez pour transcrire et coller le texte.")
-                        .font(.system(size: 12))
-                        .lineSpacing(3)
-                        .foregroundColor(.secondary)
-                }
+            Spacer()
 
-                Divider().opacity(0.5)
+            Text(Constants.openAIModel)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
 
-                HStack(spacing: 12) {
-                    Image(systemName: "text.cursor")
-                        .font(.system(size: 14))
-                        .foregroundColor(accentColor)
-                        .frame(width: 24)
-
-                    Text("Le texte transcrit sera inséré automatiquement à l'emplacement actuel de votre curseur.")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-            }
+    private var microphonePermissionMessage: String {
+        switch appState.audioRecorder.permissionStatus {
+        case .authorized:
+            return "Accès autorisé. Whisper peut enregistrer dès que tu maintiens Fn."
+        case .notDetermined:
+            return "Le microphone n’a pas encore été autorisé sur ce Mac."
+        case .denied:
+            return "L’accès au microphone a été refusé. Ouvre les Réglages Système pour l’autoriser."
+        case .restricted:
+            return "L’accès au microphone est restreint sur ce Mac."
         }
     }
 
-    private var aboutSection: some View {
-        SettingsSection(title: "À PROPOS", icon: "info.circle") {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Whisper for macOS")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("Version 1.0.0")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-                Text("gpt-4o-mini-transcribe")
-                    .font(.system(size: 10, weight: .bold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.primary.opacity(0.05))
-                    .cornerRadius(4)
-            }
+    private var microphonePrimaryActionTitle: String {
+        switch appState.audioRecorder.permissionStatus {
+        case .authorized:
+            return "Actualiser"
+        case .notDetermined:
+            return "Autoriser le micro"
+        case .denied, .restricted:
+            return "Ouvrir Réglages Système"
         }
     }
 
-    // MARK: - Subviews
-
-    private var headerSection: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 16) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(LinearGradient(colors: [accentColor, accentColor.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 40, height: 40)
-                        .shadow(color: accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
-
-                    Image(systemName: "waveform")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Whisper")
-                        .font(.system(size: 16, weight: .bold))
-                        .kerning(-0.2)
-                    Text("Préférences Système")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-
-            Divider().opacity(0.5)
+    private var microphoneSecondaryActionTitle: String? {
+        switch appState.audioRecorder.permissionStatus {
+        case .authorized, .notDetermined:
+            return nil
+        case .denied, .restricted:
+            return "Réessayer"
         }
     }
 
-    private var statusIndicator: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(appState.hasAPIKey ? Color.green : Color.orange)
-                .frame(width: 6, height: 6)
-                .shadow(color: (appState.hasAPIKey ? Color.green : Color.orange).opacity(0.4), radius: 3)
-
-            Text(appState.hasAPIKey ? "Clé API valide" : "Clé non configurée")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-
-            if appState.hasAPIKey {
-                Button(action: { appState.clearAPIKey() }) {
-                    Text("Réinitialiser")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .underline()
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 4)
-            }
+    private var microphoneSecondaryAction: (() -> Void)? {
+        switch appState.audioRecorder.permissionStatus {
+        case .authorized, .notDetermined:
+            return nil
+        case .denied, .restricted:
+            return { appState.refreshUIState() }
         }
     }
 
-    private var footerSection: some View {
-        VStack(spacing: 0) {
-            Divider().opacity(0.5)
-            HStack {
-                Text(appState.transcriptionMode == .api
-                    ? "Whisper utilise l'API OpenAI pour une précision optimale."
-                    : "L'IA locale garantit la confidentialité de vos données.")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary.opacity(0.7))
-
-                Spacer()
-
-                Button("Quitter") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .buttonStyle(RefinedButtonStyle(isPrimary: false))
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+    private var accessibilityPermissionMessage: String {
+        if appState.hasAccessibilityPermission {
+            return "Accès autorisé. Whisper peut remettre le texte à l’endroit où tu écris."
         }
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
+
+        return "L’accessibilité est requise pour coller automatiquement la transcription dans l’app active."
     }
 
-    // MARK: - Logic
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
+    private func handleMicrophonePrimaryAction() {
+        if appState.audioRecorder.permissionStatus == .authorized {
+            appState.refreshUIState()
+        } else {
+            appState.requestMicrophonePermission()
+        }
+    }
 
     private func validateKey() {
-        guard !apiKeyInput.isEmpty else { return }
+        let trimmedKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKey.isEmpty else { return }
 
         isValidating = true
-        showErrorHint = false
+        apiFeedback = .idle
 
         Task {
-            let success = await appState.updateAPIKey(apiKeyInput)
+            let success = await appState.updateAPIKey(trimmedKey)
             await MainActor.run {
                 isValidating = false
                 if success {
                     apiKeyInput = ""
-                    showSuccessHint = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { showSuccessHint = false }
+                    apiFeedback = .success("La clé API est valide et a été enregistrée.")
                 } else {
-                    showErrorHint = true
+                    apiFeedback = .failure("La clé API n’a pas pu être validée.")
                 }
             }
         }
     }
 }
 
-// MARK: - Supporting Views
+private enum SettingsPane: CaseIterable, Hashable, Identifiable {
+    case general
+    case transcription
+    case models
+    case permissions
 
-struct SettingsSection<Content: View>: View {
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .general:
+            return "Général"
+        case .transcription:
+            return "Transcription"
+        case .models:
+            return "Modèles locaux"
+        case .permissions:
+            return "Permissions"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .general:
+            return "Vue d’ensemble, mode actif et usage quotidien."
+        case .transcription:
+            return "Choix du fournisseur, clé API et configuration opérationnelle."
+        case .models:
+            return "Téléchargement, sélection et gestion des modèles hors ligne."
+        case .permissions:
+            return "Statut des autorisations requises pour le micro et le collage."
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .general:
+            return "slider.horizontal.3"
+        case .transcription:
+            return "waveform"
+        case .models:
+            return "cpu"
+        case .permissions:
+            return "lock.shield"
+        }
+    }
+}
+
+private enum APIValidationFeedback {
+    case idle
+    case success(String)
+    case failure(String)
+}
+
+private struct SettingsCard<Content: View>: View {
     let title: String
-    let icon: String
+    let systemImage: String
     let content: Content
 
-    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
+    init(title: String, systemImage: String, @ViewBuilder content: () -> Content) {
         self.title = title
-        self.icon = icon
+        self.systemImage = systemImage
         self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondary)
-                Text(title)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondary)
-                    .kerning(0.5)
-            }
-
-            VStack(alignment: .leading, spacing: 0) {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 14) {
                 content
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.4))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
         }
     }
 }
 
-struct ShortcutKeyView: View {
+private struct SettingsFactRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        LabeledContent(label) {
+            Text(value)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.trailing)
+        }
+        .font(.subheadline)
+    }
+}
+
+private struct SettingsNotice: View {
+    let title: String
+    let message: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .foregroundStyle(tint)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct PermissionRow: View {
+    let title: String
+    let message: String
+    let isGranted: Bool
+    let primaryActionTitle: String
+    let primaryAction: () -> Void
+    let secondaryActionTitle: String?
+    let secondaryAction: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Label(isGranted ? "Autorisé" : "Requis", systemImage: isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isGranted ? .green : .orange)
+            }
+
+            HStack(spacing: 10) {
+                if isGranted {
+                    Button(primaryActionTitle, action: primaryAction)
+                        .buttonStyle(.bordered)
+                } else {
+                    Button(primaryActionTitle, action: primaryAction)
+                        .buttonStyle(.borderedProminent)
+                }
+
+                if let secondaryActionTitle, let secondaryAction {
+                    Button(secondaryActionTitle, action: secondaryAction)
+                        .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+}
+
+private struct ShortcutKeyView: View {
     let label: String
     let subLabel: String
 
     var body: some View {
-        VStack(spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(white: 1, opacity: 0.1), Color(white: 1, opacity: 0.05)], startPoint: .top, endPoint: .bottom))
-                    .frame(width: 36, height: 36)
-                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-                    .frame(width: 36, height: 36)
-
-                Text(label)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-            }
+        VStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .frame(width: 44, height: 40)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             Text(subLabel)
-                .font(.system(size: 8, weight: .bold))
-                .foregroundColor(.secondary.opacity(0.8))
-                .textCase(.uppercase)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
         }
-    }
-}
-
-// MARK: - Styles
-
-struct RefinedTextFieldStyle: TextFieldStyle {
-    func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.2))
-            .cornerRadius(6)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-            .font(.system(size: 12, design: .monospaced))
-    }
-}
-
-struct RefinedButtonStyle: ButtonStyle {
-    let isPrimary: Bool
-    @State private var isHovering = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                ZStack {
-                    if isPrimary {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(LinearGradient(colors: [Color.accentColor, Color.accentColor.opacity(0.8)], startPoint: .top, endPoint: .bottom))
-                    } else {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.primary.opacity(isHovering ? 0.08 : 0.04))
-                    }
-                }
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(isPrimary ? Color.white.opacity(0.1) : Color.primary.opacity(0.1), lineWidth: 0.5)
-            )
-            .foregroundColor(isPrimary ? .white : .primary)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
-            .onHover { inside in
-                isHovering = inside
-                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-            }
     }
 }
 

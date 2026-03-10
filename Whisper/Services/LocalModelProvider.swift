@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 /// Service Factory qui gère les modèles locaux et retourne le provider approprié.
 /// Permet d'ajouter facilement de nouveaux modèles sans modifier AppState.
@@ -37,16 +36,15 @@ final class LocalModelProvider: ObservableObject {
     private func restoreSelectedModel() {
         if let savedModelId = UserDefaults.standard.string(forKey: "selectedLocalModelId"),
            let model = availableModels.first(where: { $0.id == savedModelId }) {
-            // Ne sélectionner que si le modèle est téléchargé (pour CoreML) ou si c'est WhisperKit
-            if model.providerType == .whisperKit || model.isReady {
-                selectedModel = model
+            if model.isReady {
+                applySelection(model)
             }
         }
 
         // Si aucun modèle sélectionné, prendre le premier modèle téléchargé ou WhisperKit par défaut
         if selectedModel == nil {
             if let firstReady = availableModels.first(where: { $0.isReady }) {
-                selectedModel = firstReady
+                applySelection(firstReady)
             }
         }
     }
@@ -75,22 +73,17 @@ final class LocalModelProvider: ObservableObject {
     /// Retourne le provider actuel basé sur le modèle sélectionné
     var currentProvider: TranscriptionProvider? {
         guard let model = selectedModel else { return nil }
+        configureProvider(for: model)
         return getProvider(for: model)
     }
 
     /// Sélectionne un modèle s'il est téléchargé
     func selectModel(_ model: LocalModel) {
-        print("🔘 [SelectModel] Tentative de sélection: \(model.id)")
-        print("🔘 [SelectModel] isReady: \(model.isReady)")
-
         guard model.isReady else {
-            print("❌ [SelectModel] Modèle non prêt, sélection refusée")
             return
         }
 
-        selectedModel = model
-        saveSelectedModelId()
-        print("✅ [SelectModel] Modèle sélectionné: \(model.id)")
+        applySelection(model)
     }
 
     /// Télécharge un modèle
@@ -135,16 +128,22 @@ final class LocalModelProvider: ObservableObject {
         case .whisperKit:
             try? WhisperKitTranscriptionProvider.shared.clearCache()
         case .coreML:
-            // FluidAudio gère son propre cache, on libère juste les ressources
             ParakeetTranscriptionProvider.shared.cleanup()
+            deleteCoreMLModelFiles()
         case .generic:
             break
         }
 
+        availableModels = LocalModel.allModels()
+
         // Si le modèle supprimé était sélectionné, changer la sélection
         if selectedModel?.id == model.id {
-            selectedModel = availableModels.first(where: { $0.isReady })
-            saveSelectedModelId()
+            selectedModel = nil
+            if let nextModel = availableModels.first(where: { $0.isReady }) {
+                applySelection(nextModel)
+            } else {
+                UserDefaults.standard.removeObject(forKey: "selectedLocalModelId")
+            }
         }
     }
 
@@ -178,11 +177,8 @@ final class LocalModelProvider: ObservableObject {
     // MARK: - Private Methods
 
     private func downloadWhisperKitModel(_ model: LocalModel) async {
-        print("📥 [WhisperKit] Début du téléchargement pour \(model.id)")
-
         // Si déjà téléchargé, juste initialiser
         if model.isReady {
-            print("✅ [WhisperKit] Modèle déjà téléchargé")
             downloadProgress[model.id] = 1.0
             isDownloading[model.id] = false
             return
@@ -194,22 +190,17 @@ final class LocalModelProvider: ObservableObject {
             model.id == "whisperkit-small" ? .small : nil
 
         guard let whisperModel = whisperModel else {
-            print("❌ [WhisperKit] Modèle inconnu: \(model.id)")
             downloadErrors[model.id] = "Modèle inconnu"
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
             return
         }
 
-        print("📥 [WhisperKit] Téléchargement du variant: \(whisperModel.rawValue)")
-
         // Télécharger via WhisperKit (avec progression simulée en parallèle)
         do {
             // Lancer le téléchargement réel
             try await WhisperKitTranscriptionProvider.shared.downloadModel(whisperModel)
-            print("✅ [WhisperKit] Téléchargement terminé")
         } catch {
-            print("❌ [WhisperKit] Erreur de téléchargement: \(error)")
             downloadErrors[model.id] = error.localizedDescription
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
@@ -222,12 +213,10 @@ final class LocalModelProvider: ObservableObject {
 
         // Vérifier si le modèle est bien téléchargé
         if let updatedModel = availableModels.first(where: { $0.id == model.id }), updatedModel.isReady {
-            print("✅ [WhisperKit] Modèle vérifié et prêt")
             isDownloading[model.id] = false
             restoreSelectedModel()
             saveSelectedModelId()
         } else {
-            print("⚠️ [WhisperKit] Modèle téléchargé mais non détecté")
             isDownloading[model.id] = false
         }
     }
@@ -273,8 +262,6 @@ final class LocalModelProvider: ObservableObject {
         }
     }
 
-    private var cancellables = Set<AnyCancellable>()
-
     private func getDirectorySize(path: URL) -> UInt64 {
         guard let enumerator = FileManager.default.enumerator(at: path, includingPropertiesForKeys: [.fileSizeKey]) else {
             return 0
@@ -289,5 +276,44 @@ final class LocalModelProvider: ObservableObject {
             totalSize += UInt64(fileSize)
         }
         return totalSize
+    }
+
+    private func applySelection(_ model: LocalModel) {
+        selectedModel = model
+        configureProvider(for: model)
+        saveSelectedModelId()
+    }
+
+    private func configureProvider(for model: LocalModel) {
+        guard model.providerType == .whisperKit,
+              let whisperModel = whisperKitModel(for: model) else {
+            return
+        }
+
+        WhisperKitTranscriptionProvider.shared.setModel(whisperModel)
+    }
+
+    private func whisperKitModel(for model: LocalModel) -> WhisperKitTranscriptionProvider.WhisperModel? {
+        switch model.id {
+        case "whisperkit-base":
+            return .base
+        case "whisperkit-small":
+            return .small
+        default:
+            return nil
+        }
+    }
+
+    private func deleteCoreMLModelFiles() {
+        guard let modelsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("FluidAudio", isDirectory: true)
+            .appendingPathComponent("Models", isDirectory: true),
+              let items = try? FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil) else {
+            return
+        }
+
+        for item in items where item.lastPathComponent.localizedCaseInsensitiveContains("parakeet") {
+            try? FileManager.default.removeItem(at: item)
+        }
     }
 }

@@ -3,8 +3,16 @@ import Foundation
 
 @MainActor
 final class AudioRecorder: NSObject, ObservableObject {
+    enum PermissionStatus: Equatable {
+        case notDetermined
+        case authorized
+        case denied
+        case restricted
+    }
+
     @Published private(set) var isRecording = false
     @Published private(set) var hasPermission = false
+    @Published private(set) var permissionStatus: PermissionStatus = .notDetermined
 
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
@@ -12,23 +20,31 @@ final class AudioRecorder: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        checkPermission()
+        refreshPermissionStatus(requestIfNeeded: true)
     }
 
-    private func checkPermission() {
+    func refreshPermissionStatus(requestIfNeeded: Bool = false) {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             hasPermission = true
+            permissionStatus = .authorized
         case .notDetermined:
+            permissionStatus = .notDetermined
+            hasPermission = false
+            guard requestIfNeeded else { return }
+
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 Task { @MainActor in
                     self?.hasPermission = granted
+                    self?.permissionStatus = granted ? .authorized : .denied
                 }
             }
         case .denied, .restricted:
             hasPermission = false
+            permissionStatus = AVCaptureDevice.authorizationStatus(for: .audio) == .restricted ? .restricted : .denied
         @unknown default:
             hasPermission = false
+            permissionStatus = .denied
         }
     }
 

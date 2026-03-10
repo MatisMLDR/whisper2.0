@@ -2,146 +2,237 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
-    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header avec statut
-            HStack {
-                Image(systemName: statusIcon)
-                    .font(.title2)
-                    .foregroundStyle(statusColor)
+        VStack(alignment: .leading, spacing: 14) {
+            statusCard
+            modeSection
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Whisper")
-                        .font(.headline)
-                    Text(statusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
+            if let blockingIssue = appState.blockingIssue,
+               !appState.isRecording,
+               !appState.isTranscribing {
+                WhisperInlineNotice(
+                    title: "Action requise",
+                    message: blockingIssue,
+                    symbol: "exclamationmark.triangle.fill",
+                    tint: .orange
+                )
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
 
-            Divider()
+            if appState.hasHistoryEntries {
+                recentHistorySection
+            }
 
-            // Instructions
+            actionSection
+        }
+        .padding(16)
+        .frame(width: 320)
+    }
+
+    private var statusCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: appState.statusIconName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(statusTint)
+                .frame(width: 36, height: 36)
+                .background(statusTint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
             VStack(alignment: .leading, spacing: 4) {
-                Label("Maintiens Fn pour parler", systemImage: "keyboard")
+                Text("Whisper")
+                    .font(.headline)
+
+                Text(appState.statusTitle)
+                    .font(.subheadline.weight(.semibold))
+
+                Text(appState.statusDetail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal)
 
-            // Erreur si présente
-            if let error = appState.lastError {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.yellow)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var modeSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Mode")
+                .font(.subheadline.weight(.semibold))
+
+            Picker("Mode", selection: Binding(
+                get: { appState.transcriptionMode },
+                set: { appState.setTranscriptionMode($0) }
+            )) {
+                Text("Local").tag(TranscriptionMode.local)
+                Text("Clé API").tag(TranscriptionMode.api)
+            }
+            .pickerStyle(.segmented)
+
+            Text(modeSummaryText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let modeActionTitle {
+                Button(modeActionTitle) {
+                    activateAndOpenWindow(.settings, with: openWindow)
                 }
-                .padding(.horizontal)
+                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
+            }
+        }
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var recentHistorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Historique récent")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("Voir tout") {
+                    activateAndOpenWindow(.history, with: openWindow)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             }
 
-            Divider()
+            VStack(spacing: 8) {
+                ForEach(appState.recentHistoryEntries) { entry in
+                    Button {
+                        appState.copyToPasteboard(entry.text)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(entry.text)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
 
-            // Historique
-            if !HistoryService.shared.entries.isEmpty {
-                Menu {
-                    ForEach(HistoryService.shared.entries.prefix(5)) { entry in
-                        Button {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(entry.text, forType: .string)
-                        } label: {
-                            Text(entry.text.prefix(50) + (entry.text.count > 50 ? "..." : ""))
+                                Text(relativeDate(entry.date))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
                         }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
-                    Divider()
-                    Button("Voir tout l'historique...") {
-                        showHistoryWindow()
-                    }
-                } label: {
-                    Label("Historique récent", systemImage: "clock.arrow.circlepath")
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 4)
-
-                Divider()
             }
+        }
+    }
 
-            // Actions
+    private var actionSection: some View {
+        VStack(spacing: 8) {
             Button {
-                openSettings()
+                activateAndOpenWindow(.settings, with: openWindow)
             } label: {
-                Label("Préférences...", systemImage: "gear")
+                Label("Réglages", systemImage: "gearshape")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
             .keyboardShortcut(",", modifiers: .command)
-            .padding(.horizontal, 4)
+
+            Button {
+                activateAndOpenWindow(.history, with: openWindow)
+            } label: {
+                Label("Historique", systemImage: "clock.arrow.circlepath")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
 
             Button(role: .destructive) {
                 NSApplication.shared.terminate(nil)
             } label: {
-                Label("Quitter Whisper", systemImage: "power")
+                Label("Quitter", systemImage: "power")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderless)
             .keyboardShortcut("q", modifiers: .command)
-            .padding(.horizontal, 4)
-            .padding(.bottom, 8)
         }
-        .frame(width: 260)
-        .buttonStyle(.plain)
+        .controlSize(.large)
     }
 
-    private func showHistoryWindow() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 350, height: 400),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Historique Whisper"
-        window.contentView = NSHostingView(rootView: HistoryView())
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private var statusIcon: String {
-        if appState.isTranscribing {
-            return "text.bubble"
-        } else if appState.isRecording {
-            return "mic.fill"
-        } else if !appState.hasAPIKey {
-            return "exclamationmark.circle"
-        } else {
-            return "checkmark.circle"
-        }
-    }
-
-    private var statusColor: Color {
+    private var statusTint: Color {
         if appState.isTranscribing {
             return .blue
-        } else if appState.isRecording {
+        }
+
+        if appState.isRecording {
             return .red
-        } else if !appState.hasAPIKey {
+        }
+
+        if appState.currentModeConfigurationIssue != nil {
+            return .secondary
+        }
+
+        if appState.blockingIssue != nil {
             return .orange
-        } else {
-            return .green
+        }
+
+        return .green
+    }
+
+    private var modeSummaryText: String {
+        if let currentModeConfigurationIssue = appState.currentModeConfigurationIssue {
+            return currentModeConfigurationIssue
+        }
+
+        return appState.providerSummary
+    }
+
+    private var modeActionTitle: String? {
+        switch appState.transcriptionMode {
+        case .api:
+            return appState.hasAPIKey ? nil : "Configurer une clé API"
+        case .local:
+            return (appState.localModelProvider.selectedModel?.isReady ?? false) ? nil : "Choisir un modèle local"
         }
     }
 
-    private var statusText: String {
-        if appState.isTranscribing {
-            return "Transcription en cours..."
-        } else if appState.isRecording {
-            return "Enregistrement..."
-        } else if !appState.hasAPIKey {
-            return "Clé API non configurée"
-        } else {
-            return "Prêt"
+    private func relativeDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+private struct WhisperInlineNotice: View {
+    let title: String
+    let message: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .foregroundStyle(tint)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .padding(12)
+        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

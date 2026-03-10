@@ -1,110 +1,93 @@
 import SwiftUI
 
 struct HistoryView: View {
-    @ObservedObject var historyService = HistoryService.shared
+    @EnvironmentObject var appState: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack {
-                Text("Historique")
-                    .font(.headline)
-                Spacer()
-                if !historyService.entries.isEmpty {
-                    Button("Tout effacer") {
-                        historyService.clearAll()
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .padding()
-
-            Divider()
-
-            if historyService.entries.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("Aucune transcription")
-                        .foregroundStyle(.secondary)
-                    Text("Les transcriptions s'effacent après 24h")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
+        Group {
+            if appState.historyService.entries.isEmpty {
+                ContentUnavailableView(
+                    "Aucune transcription",
+                    systemImage: "clock.arrow.circlepath",
+                    description: Text("L’historique conserve les 24 dernières heures pour retrouver rapidement une dictée récente.")
+                )
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(historyService.entries) { entry in
-                            HistoryEntryView(entry: entry) {
-                                historyService.delete(entry)
-                            }
-                        }
+                List {
+                    ForEach(appState.historyService.entries) { entry in
+                        HistoryEntryRow(
+                            entry: entry,
+                            onCopy: { appState.copyToPasteboard(entry.text) },
+                            onDelete: { appState.historyService.delete(entry) }
+                        )
+                        .listRowInsets(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14))
                     }
-                    .padding()
+                }
+                .listStyle(.inset)
+            }
+        }
+        .navigationTitle("Historique")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if !appState.historyService.entries.isEmpty {
+                    Button("Tout effacer") {
+                        appState.historyService.clearAll()
+                    }
                 }
             }
         }
-        .frame(width: 350, height: 400)
+        .frame(minWidth: 560, minHeight: 540)
     }
 }
 
-struct HistoryEntryView: View {
+private struct HistoryEntryRow: View {
     let entry: TranscriptionEntry
+    let onCopy: () -> Void
     let onDelete: () -> Void
 
-    @State private var isHovering = false
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(timeAgo)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(timeLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer()
-                if isHovering {
-                    Button {
-                        // Copier dans le presse-papiers
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(entry.text, forType: .string)
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
 
-                    Button {
-                        onDelete()
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.red)
+                Spacer()
+
+                Button(action: onCopy) {
+                    Image(systemName: "doc.on.doc")
                 }
+                .buttonStyle(.borderless)
+                .help("Copier")
+
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .help("Supprimer")
             }
 
             Text(entry.text)
-                .font(.system(size: 12))
-                .lineLimit(3)
+                .font(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
         }
-        .padding(10)
-        .background(Color.primary.opacity(0.05))
-        .cornerRadius(8)
-        .onHover { isHovering = $0 }
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .contextMenu {
+            Button("Copier", action: onCopy)
+            Button("Supprimer", role: .destructive, action: onDelete)
+        }
     }
 
-    private var timeAgo: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: entry.date, relativeTo: Date())
+    private var timeLabel: String {
+        let relativeFormatter = RelativeDateTimeFormatter()
+        relativeFormatter.locale = Locale(identifier: "fr_FR")
+        relativeFormatter.unitsStyle = .short
+        return relativeFormatter.localizedString(for: entry.date, relativeTo: Date())
     }
 }
 
 #Preview {
     HistoryView()
+        .environmentObject(AppState())
 }

@@ -1,217 +1,157 @@
 import SwiftUI
 
 struct ModelRowView: View {
-    // MARK: - Properties
     let model: LocalModel
     let isSelected: Bool
     let isDownloading: Bool
     let downloadProgress: Double
     let errorMessage: String?
 
-    // MARK: - Actions
     let onSelect: () -> Void
     let onDownload: () -> Void
     let onCancel: () -> Void
     let onDelete: () -> Void
     let onRetry: () -> Void
 
-    // MARK: - Computed
     private var isDownloaded: Bool {
         model.isReady
     }
 
-    private var accentColor: Color {
-        Color(nsColor: .controlAccentColor)
-    }
-
-    // MARK: - Body
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            // Radio button à gauche
-            radioButton
+        HStack(alignment: .top, spacing: 14) {
+            selectButton
 
-            // Infos du modèle au centre
-            modelInfo
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                Text(model.description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Spacer()
+                HStack(spacing: 8) {
+                    ModelBadge(text: model.providerType.displayName, tint: model.providerType == .whisperKit ? .blue : .secondary)
+                    ModelBadge(text: model.language, tint: .secondary)
+                    Text(model.fileSize)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
-            // Actions à droite
-            actionButtons
+            Spacer(minLength: 12)
+
+            actionArea
         }
-        .padding(.vertical, 8)
-        .onAppear {
-            print("📱 [ModelRowView] Affichage de \(model.id): isReady=\(model.isReady), isDownloaded=\(isDownloaded)")
-        }
+        .padding(14)
+        .background(rowBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(isSelected ? Color.accentColor.opacity(0.35) : Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 
-    // MARK: - Subviews
-    private var radioButton: some View {
-        ZStack {
-            Circle()
-                .stroke(isDownloaded ? (isSelected ? accentColor : Color.primary.opacity(0.3)) : Color.primary.opacity(0.15), lineWidth: 2)
-                .frame(width: 20, height: 20)
-
-            if isSelected && isDownloaded {
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 12, height: 12)
-            }
-        }
-        .frame(width: 28, height: 28) // Zone de tap plus grande
-        .contentShape(Rectangle())
-        .onTapGesture {
-            print("🔘 [ModelRowView] Tap gesture pour: \(model.id)")
-            print("🔘 [ModelRowView] isDownloaded: \(isDownloaded)")
-            guard isDownloaded else {
-                print("❌ [ModelRowView] Non téléchargé, action ignorée")
-                return
-            }
+    private var selectButton: some View {
+        Button {
+            guard isDownloaded else { return }
             onSelect()
+        } label: {
+            Image(systemName: selectionSymbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(selectionColor)
+                .frame(width: 28, height: 28)
         }
-        .opacity(isDownloaded ? 1.0 : 0.4)
-        .help(isDownloaded ? "Sélectionner ce modèle" : "Téléchargez d'abord ce modèle")
+        .buttonStyle(.plain)
+        .disabled(!isDownloaded)
+        .help(isDownloaded ? "Utiliser ce modèle" : "Télécharge d’abord ce modèle")
     }
 
-    private var modelInfo: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Text(model.name)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                    .foregroundColor(isSelected ? accentColor : .primary)
+    private var header: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(model.name)
+                .font(.headline)
 
-                // Badge provider
-                Text(model.providerType.displayName.uppercased())
-                    .font(.system(size: 9, weight: .bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(model.providerType == .whisperKit ? Color.blue.opacity(0.2) : Color.purple.opacity(0.2))
-                    .foregroundColor(model.providerType == .whisperKit ? .blue : .purple)
-                    .cornerRadius(4)
-
-                // Badge langue
-                Text(model.language.uppercased())
-                    .font(.system(size: 9, weight: .medium))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.primary.opacity(0.08))
-                    .foregroundColor(.secondary)
-                    .cornerRadius(4)
+            if isSelected {
+                ModelBadge(text: "Actif", tint: .accentColor)
             }
-
-            Text(model.description)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-
-            Text(model.fileSize)
-                .font(.system(size: 10))
-                .foregroundColor(.secondary.opacity(0.8))
         }
     }
 
     @ViewBuilder
-    private var actionButtons: some View {
+    private var actionArea: some View {
         if isDownloading {
-            // État: téléchargement en cours
-            downloadProgressView
-        } else if let error = errorMessage {
-            // État: erreur
-            errorView(message: error)
+            VStack(alignment: .trailing, spacing: 8) {
+                ProgressView(value: max(0.08, downloadProgress))
+                    .frame(width: 120)
+
+                Button("Annuler", action: onCancel)
+                    .buttonStyle(.borderless)
+            }
+        } else if let errorMessage {
+            VStack(alignment: .trailing, spacing: 8) {
+                Label("Échec", systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.orange)
+
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 150, alignment: .trailing)
+
+                Button("Réessayer", action: onRetry)
+                    .buttonStyle(.bordered)
+            }
         } else if isDownloaded {
-            // État: téléchargé
-            downloadedView
-        } else {
-            // État: non téléchargé
-            downloadButton
-        }
-    }
+            VStack(alignment: .trailing, spacing: 8) {
+                Label("Prêt", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.green)
 
-    private var downloadProgressView: some View {
-        VStack(spacing: 6) {
-            // Barre de progression indéterminée (animée)
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(width: 100, height: 8)
-
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(accentColor)
-                    .frame(width: 100 * max(0.05, downloadProgress), height: 8)
-                    .animation(.linear(duration: 0.1), value: downloadProgress)
-            }
-
-            HStack(spacing: 6) {
-                Text("Téléchargement...")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-
-                Button(action: onCancel) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                Button(role: .destructive, action: onDelete) {
+                    Label("Supprimer", systemImage: "trash")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
             }
+        } else {
+            Button("Télécharger", action: onDownload)
+                .buttonStyle(.borderedProminent)
         }
     }
 
-    private func errorView(message: String) -> some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(spacing: 4) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 10))
-                    .foregroundColor(.orange)
-                Text("Échec")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.orange)
-            }
-
-            Button(action: onRetry) {
-                Text("Réessayer")
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .buttonStyle(.plain)
-            .foregroundColor(accentColor)
+    private var selectionSymbol: String {
+        if !isDownloaded {
+            return "circle.dashed"
         }
-        .frame(width: 80)
+
+        return isSelected ? "largecircle.fill.circle" : "circle"
     }
 
-    private var downloadedView: some View {
-        HStack(spacing: 8) {
-            // Icône de validation
-            HStack(spacing: 4) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12))
-                Text("Prêt")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .foregroundColor(.green)
-
-            // Bouton supprimer discret
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary.opacity(0.6))
-            }
-            .buttonStyle(.plain)
-            .help("Supprimer ce modèle")
-        }
+    private var rowBackground: Color {
+        isSelected ? Color.accentColor.opacity(0.07) : Color(nsColor: .controlBackgroundColor)
     }
 
-    private var downloadButton: some View {
-        Button(action: onDownload) {
-            HStack(spacing: 4) {
-                Image(systemName: "icloud.and.arrow.down")
-                    .font(.system(size: 11))
-                Text("Télécharger")
-                    .font(.system(size: 11, weight: .medium))
-            }
+    private var selectionColor: Color {
+        if !isDownloaded {
+            return .secondary.opacity(0.45)
         }
-        .buttonStyle(RefinedButtonStyle(isPrimary: true))
+
+        return isSelected ? .accentColor : .secondary
     }
 }
 
-// MARK: - Preview
+private struct ModelBadge: View {
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        Text(text)
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(tint.opacity(0.12), in: Capsule())
+            .foregroundStyle(tint)
+    }
+}
+
 #Preview {
     VStack(spacing: 16) {
         ModelRowView(
@@ -226,33 +166,7 @@ struct ModelRowView: View {
             onDelete: {},
             onRetry: {}
         )
-
-        ModelRowView(
-            model: LocalModel.allModels()[0],
-            isSelected: true,
-            isDownloading: false,
-            downloadProgress: 0,
-            errorMessage: nil,
-            onSelect: {},
-            onDownload: {},
-            onCancel: {},
-            onDelete: {},
-            onRetry: {}
-        )
-
-        ModelRowView(
-            model: LocalModel.allModels()[0],
-            isSelected: false,
-            isDownloading: true,
-            downloadProgress: 0.5,
-            errorMessage: nil,
-            onSelect: {},
-            onDownload: {},
-            onCancel: {},
-            onDelete: {},
-            onRetry: {}
-        )
     }
     .padding()
-    .frame(width: 450)
+    .frame(width: 520)
 }

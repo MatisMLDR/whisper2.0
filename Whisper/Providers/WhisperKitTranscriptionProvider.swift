@@ -117,7 +117,7 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     #endif
 
     /// Change le modèle utilisé pour la transcription
-    func setModel(_ model: WhisperModel) async throws {
+    func setModel(_ model: WhisperModel) {
         guard model != currentModel else { return }
 
         currentModel = model
