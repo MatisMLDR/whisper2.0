@@ -36,6 +36,8 @@
 		DDD000014 /* LocalAudioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000015 /* LocalAudioModel.swift */; };
 		DDD000016 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000017 /* LocalModelProvider.swift */; };
 		EEE000001 /* ModelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEE000010 /* ModelRowView.swift */; };
+		FFF000001 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF000010 /* Profile.swift */; };
+		FFF000002 /* ProfileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF000011 /* ProfileService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +70,8 @@
 		DDD000015 /* LocalAudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioModel.swift; sourceTree = "<group>"; };
 		DDD000017 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
 		EEE000010 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
+		FFF000010 /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
+		FFF000011 /* ProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +137,7 @@
 				BBB000011 /* HistoryService.swift */,
 				CCC000016 /* AudioConverter.swift */,
 				DDD000017 /* LocalModelProvider.swift */,
+				FFF000011 /* ProfileService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -175,6 +180,7 @@
 			isa = PBXGroup;
 			children = (
 				19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */,
+				FFF000010 /* Profile.swift */,
 				CCC000011 /* TranscriptionMode.swift */,
 				CCC000012 /* LocalModel.swift */,
 				DDD000015 /* LocalAudioModel.swift */,
@@ -288,7 +294,9 @@
 				DDD000012 /* WhisperKitTranscriptionProvider.swift in Sources */,
 				DDD000014 /* LocalAudioModel.swift in Sources */,
 				DDD000016 /* LocalModelProvider.swift in Sources */,
+				FFF000002 /* ProfileService.swift in Sources */,
 				EEE000001 /* ModelRowView.swift in Sources */,
+				FFF000001 /* Profile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

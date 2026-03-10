@@ -22,6 +22,7 @@ final class MicrophoneService: ObservableObject {
 
     private var originalDefaultInputDeviceID: AudioDeviceID?
     private let userDefaultsKey = "selectedMicrophoneID"
+    private let systemDefaultDeviceMarker = "__system_default__"
 
     // MARK: - Initialization
 
@@ -67,11 +68,6 @@ final class MicrophoneService: ObservableObject {
 
         availableDevices = devices
         updateSelectedDeviceAvailability()
-
-        // Si aucun périphérique sélectionné, prendre le premier disponible
-        if selectedDevice == nil, let firstDevice = devices.first {
-            selectedDevice = firstDevice
-        }
     }
 
     /// Prépare l'enregistrement en changeant temporairement le périphérique par défaut
@@ -118,6 +114,11 @@ final class MicrophoneService: ObservableObject {
             return
         }
 
+        if savedID == systemDefaultDeviceMarker {
+            selectedDevice = nil
+            return
+        }
+
         // Chercher le périphérique sauvegardé dans la liste actuelle
         if let device = availableDevices.first(where: { $0.id == savedID }) {
             selectedDevice = device
@@ -132,7 +133,7 @@ final class MicrophoneService: ObservableObject {
         if let device = selectedDevice {
             UserDefaults.standard.set(device.id, forKey: userDefaultsKey)
         } else {
-            UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+            UserDefaults.standard.set(systemDefaultDeviceMarker, forKey: userDefaultsKey)
         }
     }
 

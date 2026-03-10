@@ -4,13 +4,13 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
-    @State private var selection: SettingsPane? = .general
+    @State private var selection: SettingsPane? = .profiles
     @State private var apiKeyInput = ""
     @State private var isValidating = false
     @State private var apiFeedback: APIValidationFeedback = .idle
 
     private var currentPane: SettingsPane {
-        selection ?? .general
+        selection ?? .profiles
     }
 
     var body: some View {
@@ -72,6 +72,8 @@ struct SettingsView: View {
     @ViewBuilder
     private var paneContent: some View {
         switch currentPane {
+        case .profiles:
+            profilesPane
         case .general:
             generalPane
         case .transcription:
@@ -83,12 +85,111 @@ struct SettingsView: View {
         }
     }
 
+    private var profilesPane: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsCard(title: "Profils", systemImage: "person.crop.circle") {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(appState.profiles) { profile in
+                        ProfileRow(
+                            title: profile.name,
+                            subtitle: appState.profileSummary(for: profile),
+                            isActive: appState.activeProfileId == profile.id
+                        ) {
+                            appState.setActiveProfile(id: profile.id)
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        Button("Nouveau profil") {
+                            appState.createProfile()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if appState.profileService.canDeleteProfiles,
+                           let activeProfileId = appState.activeProfileId {
+                            Button("Supprimer le profil actif", role: .destructive) {
+                                appState.deleteProfile(id: activeProfileId)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+            }
+
+            if let activeProfile = appState.activeProfile {
+                SettingsCard(title: "Profil actif", systemImage: activeProfile.transcriptionMode.iconName) {
+                    LabeledContent("Nom") {
+                        TextField("Nom du profil", text: activeProfileNameBinding(activeProfile.id))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 280)
+                    }
+                    .font(.subheadline)
+
+                    LabeledContent("IA") {
+                        Picker(
+                            "IA",
+                            selection: activeProfileModeBinding(activeProfile.id)
+                        ) {
+                            Text("Local").tag(TranscriptionMode.local)
+                            Text("Clé API").tag(TranscriptionMode.api)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 220)
+                    }
+                    .font(.subheadline)
+
+                    if activeProfile.transcriptionMode == .local {
+                        LabeledContent("Modèle local") {
+                            Picker(
+                                "Modèle local",
+                                selection: activeProfileModelBinding(activeProfile.id)
+                            ) {
+                                Text("Choisir").tag(Optional<String>.none)
+                                ForEach(appState.localModelProvider.availableModels) { model in
+                                    Text(localModelPickerLabel(model)).tag(Optional(model.id))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(width: 260)
+                        }
+                        .font(.subheadline)
+
+                        if let currentModeConfigurationIssue = appState.currentModeConfigurationIssue {
+                            SettingsNotice(
+                                title: "Profil local incomplet",
+                                message: currentModeConfigurationIssue,
+                                symbol: "externaldrive.badge.exclamationmark",
+                                tint: .orange
+                            )
+                        }
+                    } else {
+                        SettingsNotice(
+                            title: appState.hasAPIKey ? "Clé API prête" : "Clé API requise",
+                            message: appState.hasAPIKey
+                                ? "Tous les profils en mode Clé API utiliseront la clé OpenAI enregistrée sur ce Mac."
+                                : "Aucune clé API n’est configurée pour les profils Cloud.",
+                            symbol: appState.hasAPIKey ? "checkmark.circle.fill" : "key.fill",
+                            tint: appState.hasAPIKey ? .green : .orange
+                        )
+
+                        if !appState.hasAPIKey {
+                            Button("Configurer la clé API") {
+                                selection = .transcription
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var generalPane: some View {
         VStack(alignment: .leading, spacing: 20) {
             SettingsCard(title: "État", systemImage: "checkmark.circle") {
                 SettingsFactRow(label: "Whisper", value: appState.statusTitle)
-                SettingsFactRow(label: "Mode actif", value: appState.transcriptionMode.title)
-                SettingsFactRow(label: "Fournisseur", value: appState.providerSummary)
+                SettingsFactRow(label: "Profil actif", value: appState.activeProfileName)
+                SettingsFactRow(label: "IA active", value: appState.providerSummary)
                 SettingsFactRow(label: "Microphone", value: appState.selectedMicrophoneSummary)
                 SettingsFactRow(
                     label: "Historique",
@@ -101,10 +202,10 @@ struct SettingsView: View {
                     ShortcutKeyView(label: "Fn", subLabel: "Maintenir")
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Maintiens Fn pour dicter. Relâche pour lancer la transcription et coller le texte à l’emplacement du curseur.")
+                        Text("Maintiens Fn pour dicter. Le profil actif détermine l’IA utilisée au moment où tu relâches la touche.")
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Text("Whisper reste volontairement minimal: une seule action, un retour immédiat, pas d’écran superflu pendant l’usage.")
+                        Text("Choisis rapidement un autre profil depuis l’icône de barre de menus, puis dicte sans rouvrir les réglages.")
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -112,8 +213,9 @@ struct SettingsView: View {
                 }
             }
 
-            SettingsCard(title: "Configuration locale", systemImage: "cpu") {
-                SettingsFactRow(label: "Modèle prêt", value: appState.localModelSummary)
+            SettingsCard(title: "Profil actif", systemImage: "person.crop.circle.badge.checkmark") {
+                SettingsFactRow(label: "Nom", value: appState.activeProfileName)
+                SettingsFactRow(label: "Mode", value: appState.transcriptionMode.title)
                 SettingsFactRow(label: "Résumé", value: appState.activeModeSummary)
             }
         }
@@ -121,75 +223,51 @@ struct SettingsView: View {
 
     private var transcriptionPane: some View {
         VStack(alignment: .leading, spacing: 20) {
-            SettingsCard(title: "Mode de transcription", systemImage: appState.transcriptionMode.iconName) {
-                Picker("Mode", selection: Binding(
-                    get: { appState.transcriptionMode },
-                    set: { appState.setTranscriptionMode($0) }
-                )) {
-                    ForEach(TranscriptionMode.allCases, id: \.self) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Text(appState.activeModeSummary)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if appState.transcriptionMode == .api {
-                SettingsCard(title: "OpenAI", systemImage: "key") {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack(alignment: .center, spacing: 12) {
-                            SecureField("sk-...", text: $apiKeyInput)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-
-                            Button {
-                                validateKey()
-                            } label: {
-                                if isValidating {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Text("Valider")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating)
-                        }
-
-                        SettingsFactRow(label: "État", value: appState.hasAPIKey ? "Clé configurée" : "Aucune clé API")
-
-                        if case .success(let message) = apiFeedback {
-                            SettingsNotice(title: "Clé enregistrée", message: message, symbol: "checkmark.circle.fill", tint: .green)
-                        }
-
-                        if case .failure(let message) = apiFeedback {
-                            SettingsNotice(title: "Validation impossible", message: message, symbol: "xmark.circle.fill", tint: .red)
-                        }
-
-                        HStack(spacing: 12) {
-                            Link("Gérer mes clés OpenAI", destination: URL(string: "https://platform.openai.com/api-keys")!)
-
-                            if appState.hasAPIKey {
-                                Button("Réinitialiser") {
-                                    appState.clearAPIKey()
-                                    apiFeedback = .idle
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                SettingsCard(title: "Mode local", systemImage: "externaldrive.badge.checkmark") {
-                    SettingsFactRow(label: "Modèle sélectionné", value: appState.localModelSummary)
-
-                    Text("Télécharge un modèle dans la section Modèles locaux pour préparer l’usage hors ligne.")
+            SettingsCard(title: "Clé API OpenAI", systemImage: "key") {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Tous les profils en mode Clé API utiliseront cette clé.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(alignment: .center, spacing: 12) {
+                        SecureField("sk-...", text: $apiKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+
+                        Button {
+                            validateKey()
+                        } label: {
+                            if isValidating {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Valider")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isValidating)
+                    }
+
+                    SettingsFactRow(label: "État", value: appState.hasAPIKey ? "Clé configurée" : "Aucune clé API")
+
+                    if case .success(let message) = apiFeedback {
+                        SettingsNotice(title: "Clé enregistrée", message: message, symbol: "checkmark.circle.fill", tint: .green)
+                    }
+
+                    if case .failure(let message) = apiFeedback {
+                        SettingsNotice(title: "Validation impossible", message: message, symbol: "xmark.circle.fill", tint: .red)
+                    }
+
+                    HStack(spacing: 12) {
+                        Link("Gérer mes clés OpenAI", destination: URL(string: "https://platform.openai.com/api-keys")!)
+
+                        if appState.hasAPIKey {
+                            Button("Réinitialiser") {
+                                appState.clearAPIKey()
+                                apiFeedback = .idle
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -197,26 +275,26 @@ struct SettingsView: View {
 
     private var modelsPane: some View {
         VStack(alignment: .leading, spacing: 20) {
-            if appState.transcriptionMode != .local {
-                SettingsNotice(
-                    title: "Mode cloud actif",
-                    message: "Tu peux préparer les modèles locaux à l’avance, puis repasser en mode Local quand tu veux.",
-                    symbol: "info.circle.fill",
-                    tint: .blue
-                )
-            }
+            SettingsNotice(
+                title: "Bibliothèque locale",
+                message: "Les profils en mode Local pointeront vers les modèles gérés ici. Sélectionner un modèle l’assigne au profil actif.",
+                symbol: "info.circle.fill",
+                tint: .blue
+            )
 
-            SettingsCard(title: "Bibliothèque", systemImage: "shippingbox") {
+            SettingsCard(title: "Modèles locaux", systemImage: "shippingbox") {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(appState.localModelProvider.availableModels) { model in
                         ModelRowView(
                             model: model,
-                            isSelected: appState.localModelProvider.selectedModel?.id == model.id,
+                            isSelected: appState.activeProfile?.selectedLocalModelId == model.id,
                             isDownloading: appState.localModelProvider.isDownloading[model.id] ?? false,
                             downloadProgress: appState.localModelProvider.downloadProgress[model.id] ?? 0,
                             errorMessage: appState.localModelProvider.downloadErrors[model.id]
                         ) {
-                            appState.localModelProvider.selectModel(model)
+                            guard let activeProfileId = appState.activeProfileId else { return }
+                            appState.updateProfileMode(.local, for: activeProfileId)
+                            appState.updateProfileLocalModel(model.id, for: activeProfileId)
                         } onDownload: {
                             appState.localModelProvider.downloadModel(model)
                         } onCancel: {
@@ -335,6 +413,43 @@ struct SettingsView: View {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
 
+    private func activeProfileNameBinding(_ profileID: UUID) -> Binding<String> {
+        Binding(
+            get: {
+                appState.profileService.profile(with: profileID)?.name ?? ""
+            },
+            set: { newValue in
+                appState.updateProfileName(newValue, for: profileID)
+            }
+        )
+    }
+
+    private func activeProfileModeBinding(_ profileID: UUID) -> Binding<TranscriptionMode> {
+        Binding(
+            get: {
+                appState.profileService.profile(with: profileID)?.transcriptionMode ?? .local
+            },
+            set: { newValue in
+                appState.updateProfileMode(newValue, for: profileID)
+            }
+        )
+    }
+
+    private func activeProfileModelBinding(_ profileID: UUID) -> Binding<String?> {
+        Binding(
+            get: {
+                appState.profileService.profile(with: profileID)?.selectedLocalModelId
+            },
+            set: { newValue in
+                appState.updateProfileLocalModel(newValue, for: profileID)
+            }
+        )
+    }
+
+    private func localModelPickerLabel(_ model: LocalModel) -> String {
+        model.isReady ? model.name : "\(model.name) · à télécharger"
+    }
+
     private func handleMicrophonePrimaryAction() {
         if appState.audioRecorder.permissionStatus == .authorized {
             appState.refreshUIState()
@@ -366,6 +481,7 @@ struct SettingsView: View {
 }
 
 private enum SettingsPane: CaseIterable, Hashable, Identifiable {
+    case profiles
     case general
     case transcription
     case models
@@ -375,10 +491,12 @@ private enum SettingsPane: CaseIterable, Hashable, Identifiable {
 
     var title: String {
         switch self {
+        case .profiles:
+            return "Profils"
         case .general:
             return "Général"
         case .transcription:
-            return "Transcription"
+            return "Clé API"
         case .models:
             return "Modèles locaux"
         case .permissions:
@@ -388,12 +506,14 @@ private enum SettingsPane: CaseIterable, Hashable, Identifiable {
 
     var subtitle: String {
         switch self {
+        case .profiles:
+            return "Crée, renomme et choisis les profils qui pilotent l’IA utilisée."
         case .general:
-            return "Vue d’ensemble, mode actif et usage quotidien."
+            return "Vue d’ensemble, profil actif et usage quotidien."
         case .transcription:
-            return "Choix du fournisseur, clé API et configuration opérationnelle."
+            return "Configuration globale de la clé API utilisée par les profils Cloud."
         case .models:
-            return "Téléchargement, sélection et gestion des modèles hors ligne."
+            return "Téléchargement et gestion des modèles utilisés par les profils locaux."
         case .permissions:
             return "Statut des autorisations requises pour le micro et le collage."
         }
@@ -401,10 +521,12 @@ private enum SettingsPane: CaseIterable, Hashable, Identifiable {
 
     var iconName: String {
         switch self {
+        case .profiles:
+            return "person.2"
         case .general:
             return "slider.horizontal.3"
         case .transcription:
-            return "waveform"
+            return "key"
         case .models:
             return "cpu"
         case .permissions:
@@ -525,6 +647,48 @@ private struct PermissionRow: View {
                 }
             }
         }
+    }
+}
+
+private struct ProfileRow: View {
+    let title: String
+    let subtitle: String
+    let isActive: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        if isActive {
+                                Text("Actif")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                                    .foregroundStyle(Color.accentColor)
+                        }
+                    }
+
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+            }
+            .padding(12)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 

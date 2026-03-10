@@ -8,13 +8,9 @@ final class AppState: ObservableObject {
     @Published var isTranscribing = false
     @Published var lastError: String?
     @Published var hasAPIKey: Bool
-    @Published var transcriptionMode: TranscriptionMode {
-        didSet {
-            UserDefaults.standard.set(transcriptionMode.rawValue, forKey: Self.transcriptionModeDefaultsKey)
-        }
-    }
     @Published private(set) var hasAccessibilityPermission: Bool
 
+    let profileService = ProfileService.shared
     let localModelProvider = LocalModelProvider.shared
     let audioRecorder = AudioRecorder()
     let keyboardService = KeyboardService()
@@ -23,17 +19,37 @@ final class AppState: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    private static let transcriptionModeDefaultsKey = "selectedTranscriptionMode"
+    var profiles: [Profile] {
+        profileService.profiles
+    }
+
+    var activeProfileId: UUID? {
+        profileService.activeProfileId
+    }
+
+    var activeProfile: Profile? {
+        profileService.activeProfile
+    }
+
+    var activeProfileName: String {
+        activeProfile?.name ?? "Profil"
+    }
+
+    var transcriptionMode: TranscriptionMode {
+        activeProfile?.transcriptionMode ?? .local
+    }
 
     var currentProvider: TranscriptionProvider {
         switch transcriptionMode {
         case .api:
             return OpenAITranscriptionProvider.shared
         case .local:
-            guard let provider = localModelProvider.currentProvider else {
+            guard let model = activeReadyLocalModel else {
                 return WhisperKitTranscriptionProvider.shared
             }
-            return provider
+
+            localModelProvider.selectModel(model)
+            return localModelProvider.getProvider(for: model)
         }
     }
 
@@ -45,16 +61,37 @@ final class AppState: ObservableObject {
         Array(historyService.entries.prefix(5))
     }
 
+    var availableMicrophones: [MicrophoneDevice] {
+        microphoneService.availableDevices
+    }
+
     var activeModeSummary: String {
-        transcriptionMode.subtitle
+        switch transcriptionMode {
+        case .api:
+            return "Ce profil utilise la clé API OpenAI configurée sur ce Mac."
+        case .local:
+            guard let activeLocalModel else {
+                return "Choisis un modèle local pour ce profil."
+            }
+
+            if activeLocalModel.isReady {
+                return "\(activeLocalModel.name) est prêt pour ce profil."
+            }
+
+            return "\(activeLocalModel.name) est sélectionné, mais pas encore téléchargé."
+        }
     }
 
     var providerSummary: String {
         switch transcriptionMode {
         case .api:
-            return "OpenAI · \(Constants.openAIModel)"
+            return hasAPIKey ? "OpenAI · \(Constants.openAIModel)" : "Clé API OpenAI manquante"
         case .local:
-            return localModelProvider.selectedModel?.name ?? "Aucun modèle local sélectionné"
+            guard let activeLocalModel else {
+                return "Aucun modèle local choisi"
+            }
+
+            return activeLocalModel.isReady ? activeLocalModel.name : "\(activeLocalModel.name) · à télécharger"
         }
     }
 
@@ -75,22 +112,28 @@ final class AppState: ObservableObject {
     }
 
     var localModelSummary: String {
-        if let selectedModel = localModelProvider.selectedModel, selectedModel.isReady {
-            return selectedModel.name
+        guard transcriptionMode == .local else {
+            return "Ce profil utilise la clé API OpenAI"
         }
-        return "Aucun modèle prêt"
+
+        guard let activeLocalModel else {
+            return "Aucun modèle local choisi"
+        }
+
+        return activeLocalModel.isReady ? activeLocalModel.name : "\(activeLocalModel.name) · non téléchargé"
     }
 
     var currentModeConfigurationIssue: String? {
-        if transcriptionMode == .api && !hasAPIKey {
-            return "Passe en mode Local ou configure une clé API."
-        }
+        switch transcriptionMode {
+        case .api:
+            return hasAPIKey ? nil : "Configure une clé API pour ce profil ou choisis un profil local."
+        case .local:
+            guard let activeLocalModel else {
+                return "Choisis un modèle local pour ce profil."
+            }
 
-        if transcriptionMode == .local && !(localModelProvider.selectedModel?.isReady ?? false) {
-            return "Choisis un modèle local ou passe en mode Clé API."
+            return activeLocalModel.isReady ? nil : "Télécharge le modèle \(activeLocalModel.name) ou choisis-en un autre."
         }
-
-        return nil
     }
 
     var blockingIssue: String? {
@@ -119,7 +162,7 @@ final class AppState: ObservableObject {
         }
 
         if currentModeConfigurationIssue != nil {
-            return "Mode à choisir"
+            return "Profil à finaliser"
         }
 
         if blockingIssue != nil {
@@ -131,11 +174,11 @@ final class AppState: ObservableObject {
 
     var statusDetail: String {
         if isTranscribing {
-            return "L’audio est en train d’être converti en texte."
+            return "Le profil \(activeProfileName) est en train de traiter l’audio."
         }
 
         if isRecording {
-            return "Relâche Fn pour lancer la transcription."
+            return "Relâche Fn pour lancer la transcription avec \(activeProfileName)."
         }
 
         if let currentModeConfigurationIssue {
@@ -146,7 +189,7 @@ final class AppState: ObservableObject {
             return blockingIssue
         }
 
-        return "Maintiens Fn, parle, puis relâche pour coller le texte."
+        return "Profil actif: \(activeProfileName). Maintiens Fn, parle, puis relâche pour coller le texte."
     }
 
     var statusIconName: String {
@@ -159,7 +202,7 @@ final class AppState: ObservableObject {
         }
 
         if currentModeConfigurationIssue != nil {
-            return "arrow.left.arrow.right.circle"
+            return "person.crop.circle.badge.exclamationmark"
         }
 
         if blockingIssue != nil {
@@ -181,25 +224,13 @@ final class AppState: ObservableObject {
         }
     }
 
-    var shouldAnimateMenuBarIcon: Bool {
-        isTranscribing || isRecording
-    }
-
     init() {
-        let savedMode = UserDefaults.standard.string(forKey: Self.transcriptionModeDefaultsKey)
-        let initialHasAPIKey = KeychainHelper.shared.hasAPIKey
-        let hasReadyLocalModel = LocalModelProvider.shared.selectedModel?.isReady == true
-
-        hasAPIKey = initialHasAPIKey
-        transcriptionMode = Self.preferredInitialTranscriptionMode(
-            savedMode: savedMode,
-            hasAPIKey: initialHasAPIKey,
-            hasReadyLocalModel: hasReadyLocalModel
-        )
+        hasAPIKey = KeychainHelper.shared.hasAPIKey
         hasAccessibilityPermission = TextInjector.hasAccessibilityPermission()
 
         bindChildState()
         configureKeyboardMonitoring()
+        syncActiveProfileConfiguration()
         refreshUIState()
 
         keyboardService.startMonitoring()
@@ -208,9 +239,9 @@ final class AppState: ObservableObject {
             TextInjector.requestAccessibilityPermission()
         }
 
-        if let selectedModel = localModelProvider.selectedModel, selectedModel.isReady {
+        if let activeReadyLocalModel {
             Task {
-                await prewarmSelectedModel(selectedModel)
+                await prewarmSelectedModel(activeReadyLocalModel)
             }
         }
     }
@@ -220,6 +251,7 @@ final class AppState: ObservableObject {
         hasAccessibilityPermission = TextInjector.hasAccessibilityPermission()
         audioRecorder.refreshPermissionStatus()
         microphoneService.refreshDevices()
+        syncActiveProfileConfiguration()
     }
 
     func requestMicrophonePermission() {
@@ -258,20 +290,49 @@ final class AppState: ObservableObject {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
-    func setTranscriptionMode(_ mode: TranscriptionMode) {
-        guard transcriptionMode != mode else { return }
+    func selectMicrophone(_ device: MicrophoneDevice?) {
+        microphoneService.selectedDevice = device
+    }
 
-        transcriptionMode = mode
+    func refreshMicrophones() {
+        microphoneService.refreshDevices()
+    }
+
+    func setActiveProfile(id: UUID) {
+        profileService.setActiveProfile(id: id)
         lastError = nil
+        syncActiveProfileConfiguration()
+    }
 
-        guard mode == .local,
-              let selectedModel = localModelProvider.selectedModel,
-              selectedModel.isReady else {
-            return
+    func createProfile() {
+        _ = profileService.createProfile()
+        lastError = nil
+        syncActiveProfileConfiguration()
+    }
+
+    func deleteProfile(id: UUID) {
+        profileService.deleteProfile(id: id)
+        lastError = nil
+        syncActiveProfileConfiguration()
+    }
+
+    func updateProfileName(_ name: String, for profileID: UUID) {
+        profileService.updateName(name, for: profileID)
+    }
+
+    func updateProfileMode(_ mode: TranscriptionMode, for profileID: UUID) {
+        profileService.updateTranscriptionMode(mode, for: profileID)
+        if profileID == activeProfileId {
+            lastError = nil
+            syncActiveProfileConfiguration()
         }
+    }
 
-        Task {
-            await prewarmSelectedModel(selectedModel)
+    func updateProfileLocalModel(_ localModelId: String?, for profileID: UUID) {
+        profileService.updateSelectedLocalModelId(localModelId, for: profileID)
+        if profileID == activeProfileId {
+            lastError = nil
+            syncActiveProfileConfiguration()
         }
     }
 
@@ -293,11 +354,51 @@ final class AppState: ObservableObject {
         lastError = nil
     }
 
+    func profileSummary(for profile: Profile) -> String {
+        switch profile.transcriptionMode {
+        case .api:
+            return "Clé API OpenAI"
+        case .local:
+            guard let localModel = localModelProvider.availableModels.first(where: { $0.id == profile.selectedLocalModelId }) else {
+                return "Modèle local à choisir"
+            }
+
+            return localModel.isReady ? localModel.name : "\(localModel.name) · à télécharger"
+        }
+    }
+
+    private var activeLocalModel: LocalModel? {
+        guard transcriptionMode == .local else { return nil }
+        return localModelProvider.availableModels.first(where: { $0.id == activeProfile?.selectedLocalModelId })
+    }
+
+    private var activeReadyLocalModel: LocalModel? {
+        guard let activeLocalModel, activeLocalModel.isReady else { return nil }
+        return activeLocalModel
+    }
+
     private func bindChildState() {
-        forwardChanges(from: localModelProvider.objectWillChange)
         forwardChanges(from: audioRecorder.objectWillChange)
         forwardChanges(from: microphoneService.objectWillChange)
         forwardChanges(from: historyService.objectWillChange)
+        forwardChanges(from: localModelProvider.objectWillChange)
+
+        profileService.$profiles
+            .combineLatest(profileService.$activeProfileId)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _ in
+                self?.syncActiveProfileConfiguration()
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        localModelProvider.$availableModels
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.syncActiveProfileConfiguration()
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .receive(on: RunLoop.main)
@@ -330,6 +431,15 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func syncActiveProfileConfiguration() {
+        if let activeReadyLocalModel {
+            localModelProvider.selectModel(activeReadyLocalModel)
+            Task {
+                await prewarmSelectedModel(activeReadyLocalModel)
+            }
+        }
+    }
+
     private func prewarmSelectedModel(_ model: LocalModel) async {
         switch model.providerType {
         case .coreML, .generic:
@@ -341,27 +451,6 @@ final class AppState: ObservableObject {
                 await WhisperKitTranscriptionProvider.shared.prewarmModel()
             }
         }
-    }
-
-    private static func preferredInitialTranscriptionMode(
-        savedMode: String?,
-        hasAPIKey: Bool,
-        hasReadyLocalModel: Bool
-    ) -> TranscriptionMode {
-        if let savedMode,
-           let mode = TranscriptionMode(rawValue: savedMode) {
-            return mode
-        }
-
-        if hasReadyLocalModel {
-            return .local
-        }
-
-        if hasAPIKey {
-            return .api
-        }
-
-        return .local
     }
 
     private func whisperKitModel(for model: LocalModel) -> WhisperKitTranscriptionProvider.WhisperModel? {
@@ -376,19 +465,10 @@ final class AppState: ObservableObject {
     }
 
     private func startRecording() {
-        if transcriptionMode == .api {
-            guard hasAPIKey else {
-                lastError = "Configure ta clé API dans les réglages."
-                SoundService.shared.playErrorSound()
-                return
-            }
-        } else {
-            guard let selectedModel = localModelProvider.selectedModel,
-                  selectedModel.isReady else {
-                lastError = "Télécharge un modèle local dans les réglages."
-                SoundService.shared.playErrorSound()
-                return
-            }
+        if let currentModeConfigurationIssue {
+            lastError = currentModeConfigurationIssue
+            SoundService.shared.playErrorSound()
+            return
         }
 
         guard !isTranscribing else { return }

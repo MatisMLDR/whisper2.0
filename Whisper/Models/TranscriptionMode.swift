@@ -1,7 +1,7 @@
 import Foundation
 
 /// Mode de transcription choisi par l'utilisateur
-enum TranscriptionMode: String, CaseIterable {
+enum TranscriptionMode: String, CaseIterable, Codable {
     /// Transcription via l'API OpenAI (Cloud)
     case api = "Cloud (OpenAI)"
 
