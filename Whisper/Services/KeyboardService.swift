@@ -67,8 +67,22 @@ final class KeyboardService: ObservableObject {
         } else if event.type == .flagsChanged {
             pressedModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift, .function])
             
-            // Pour différencier les touches modifier gauche et droite, on vérifie leur état physique
-            let isPressed = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(event.keyCode))
+            // Pour différencier les touches modifier gauche et droite, on vérifie leur état via les flags de bas niveau
+            let isPressed: Bool
+            let flags = event.modifierFlags.rawValue
+            switch event.keyCode {
+            case 54: isPressed = (flags & 0x00000010) != 0 // Right Command
+            case 55: isPressed = (flags & 0x00000008) != 0 // Left Command
+            case 56: isPressed = (flags & 0x00000002) != 0 // Left Shift
+            case 60: isPressed = (flags & 0x00000004) != 0 // Right Shift
+            case 58: isPressed = (flags & 0x00000020) != 0 // Left Option
+            case 61: isPressed = (flags & 0x00000040) != 0 // Right Option
+            case 59: isPressed = (flags & 0x00000001) != 0 // Left Control
+            case 62: isPressed = (flags & 0x00002000) != 0 // Right Control
+            case 63: isPressed = event.modifierFlags.contains(.function) // Fn
+            default: isPressed = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(event.keyCode))
+            }
+            
             if isPressed {
                 pressedKeyCodes.insert(event.keyCode)
             } else {
