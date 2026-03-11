@@ -23,7 +23,7 @@ struct SettingsView: View {
             
             mainContent
         }
-        .frame(minWidth: 920, minHeight: 620)
+        .frame(minWidth: 750, idealWidth: 750, maxWidth: 750, minHeight: 450, idealHeight: 450, maxHeight: .infinity)
         // A translucent background for the whole window
         .background(.ultraThinMaterial)
         .background(Color.black.opacity(0.2))

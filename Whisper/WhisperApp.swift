@@ -33,8 +33,8 @@ struct WhisperApp: App {
                 // Appliquer un fond transparent au niveau de la fenêtre macOS
                 .background(WindowAccessor())
         }
-        .defaultSize(width: 920, height: 620)
-        .windowResizability(.contentMinSize)
+        .defaultSize(width: 750, height: 450)
+        .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
 

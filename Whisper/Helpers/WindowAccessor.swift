@@ -15,6 +15,9 @@ struct WindowAccessor: NSViewRepresentable {
                 // and appear in Mission Control (Space manager)
                 window.level = .normal
                 window.collectionBehavior = [.managed, .participatesInCycle, .fullScreenAuxiliary]
+                
+                // Masquer le bouton de zoom/plein écran
+                window.standardWindowButton(.zoomButton)?.isHidden = true
             }
         }
         return view
