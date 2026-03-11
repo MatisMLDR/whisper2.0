@@ -41,11 +41,17 @@ final class OpenAITranscriptionProvider: TranscriptionProvider {
         // Ajouter la langue
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n".data(using: .utf8)!)
-        body.append("\(language ?? "fr")\r\n".data(using: .utf8)!)
+        let targetLanguage = language ?? "fr"
+        body.append("\(targetLanguage)\r\n".data(using: .utf8)!)
 
         // Ajouter le prompt avec des mots-clés techniques pour améliorer la reconnaissance
         // NOTE: Le prompt doit être une LISTE DE MOTS, pas des instructions!
-        let prompt = "API, SDK, GitHub, TypeScript, JavaScript, React, Node.js, Python, Claude, GPT, LLM, MCP, STT, TTS, Whisper, OpenAI, Anthropic, Convex, Vercel, Next.js, SwiftUI, Xcode, iOS, macOS"
+        var prompt = "API, SDK, GitHub, TypeScript, JavaScript, React, Node.js, Python, Claude, GPT, LLM, MCP, STT, TTS, Whisper, OpenAI, Anthropic, Convex, Vercel, Next.js, SwiftUI, Xcode, iOS, macOS"
+
+        // Ajouter des mots-clés spécifiques au français si la langue est le français
+        if targetLanguage == "fr" {
+            prompt += ", délégué, écosystème, bibliothèque, framework, déploiement, intégration, itération, paramètre, variable"
+        }
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n".data(using: .utf8)!)
         body.append("\(prompt)\r\n".data(using: .utf8)!)

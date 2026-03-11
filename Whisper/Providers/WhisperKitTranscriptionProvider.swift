@@ -36,6 +36,19 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
 
         // Transcrire avec les paramètres par défaut
         let decodeLanguage = language ?? (currentVariant.contains(".en") ? "en" : "fr")
+
+        // Ajouter un prompt avec des mots-clés techniques pour améliorer la reconnaissance
+        var promptTokens: [Int]? = nil
+        if let tokenizer = whisperKitInstance.tokenizer {
+            var prompt = "API, SDK, GitHub, TypeScript, JavaScript, React, Node.js, Python, Claude, GPT, LLM, MCP, STT, TTS, Whisper, OpenAI, Anthropic, Convex, Vercel, Next.js, SwiftUI, Xcode, iOS, macOS"
+            if decodeLanguage == "fr" {
+                prompt += ", délégué, écosystème, bibliothèque, framework, déploiement, intégration, itération, paramètre, variable"
+            }
+            // Encoder le texte du prompt en tokens, en filtrant les tokens spéciaux
+            promptTokens = tokenizer.encode(text: " " + prompt)
+                .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+        }
+
         let results = try await whisperKitInstance.transcribe(
             audioPath: audioURL.path,
             decodeOptions: DecodingOptions(
@@ -48,7 +61,8 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
                 skipSpecialTokens: true,
                 withoutTimestamps: false,
                 wordTimestamps: false,
-                clipTimestamps: [0]
+                clipTimestamps: [0],
+                promptTokens: promptTokens
             )
         )
 

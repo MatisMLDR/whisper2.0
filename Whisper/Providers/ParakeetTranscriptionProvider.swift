@@ -23,6 +23,9 @@ final class ParakeetTranscriptionProvider: TranscriptionProvider {
 
     func transcribe(audioURL: URL, language: String?) async throws -> String {
         #if canImport(FluidAudio)
+        // Note: Le modèle Parakeet TDT v3 utilisé ici est multilingue.
+        // Il détecte automatiquement la langue parmi 25 langues (dont le français).
+
         // Initialiser l'ASR si pas déjà fait
         if asrManager == nil && !isInitializing {
             try await initializeASR()
@@ -39,6 +42,8 @@ final class ParakeetTranscriptionProvider: TranscriptionProvider {
 
         // Transcrire directement depuis l'URL (FluidAudio gère la conversion de format)
         do {
+            // Le modèle v3 est multilingue. La détection est automatique et optimisée
+            // pour le français et l'anglais dans cette version.
             let result = try await asrManager.transcribe(audioURL, source: .system)
 
             guard !result.text.isEmpty else {
@@ -69,6 +74,7 @@ final class ParakeetTranscriptionProvider: TranscriptionProvider {
             let models = try await AsrModels.downloadAndLoad(version: .v3)
 
             // Créer et initialiser l'ASR Manager avec configuration par défaut
+            // Le modèle v3 (multilingue) est utilisé pour supporter le français.
             asrManager = AsrManager(config: .default)
             try await asrManager?.initialize(models: models)
             modelsLoaded = true

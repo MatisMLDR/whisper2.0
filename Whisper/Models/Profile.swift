@@ -14,7 +14,7 @@ struct Profile: Identifiable, Codable, Equatable {
         name: String,
         transcriptionMode: TranscriptionMode,
         selectedLocalModelId: String? = nil,
-        language: String? = nil,
+        language: String? = "fr",
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
