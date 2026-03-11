@@ -41,7 +41,7 @@ struct SettingsView: View {
     private var sidebar: some View {
         VStack(alignment: isSidebarCollapsed ? .center : .leading, spacing: 0) {
             // Window controls spacing
-            Color.clear.frame(height: 38)
+            Color.clear.frame(height: 22)
             
             ScrollView {
                 VStack(spacing: 6) {
@@ -133,7 +133,7 @@ struct SettingsView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .frame(height: 52)
+            .frame(height: 22)
             
             Divider()
 
