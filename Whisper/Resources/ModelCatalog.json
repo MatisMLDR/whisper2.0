@@ -6,6 +6,7 @@
       "description": "Modèle multilingue avec un bon compromis vitesse/précision.",
       "providerType": "whisperKit",
       "whisperKitVariant": "small",
+      "modelName": null,
       "fileSize": "~244 MB",
       "language": "Multilingue (FR, EN, ...)",
       "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small"
@@ -16,6 +17,7 @@
       "description": "Modèle optimisé pour l'anglais. Plus précis que le multilingue pour l'anglais.",
       "providerType": "whisperKit",
       "whisperKitVariant": "small.en",
+      "modelName": null,
       "fileSize": "~244 MB",
       "language": "Anglais uniquement",
       "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small.en"
@@ -26,6 +28,7 @@
       "description": "Le modèle le plus précis. Nécessite plus de RAM et de temps de traitement.",
       "providerType": "whisperKit",
       "whisperKitVariant": "large-v3",
+      "modelName": null,
       "fileSize": "~3 GB",
       "language": "Multilingue (FR, EN, ...)",
       "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3"
@@ -35,10 +38,11 @@
       "name": "Whisper Large V3 Turbo",
       "description": "Version accélérée du large. Excellent compromis vitesse/précision.",
       "providerType": "whisperKit",
-      "whisperKitVariant": "large-v3-turbo",
+      "whisperKitVariant": "large-v3_turbo",
+      "modelName": "openai_whisper-large-v3_turbo",
       "fileSize": "~1.5 GB",
       "language": "Multilingue (FR, EN, ...)",
-      "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-turbo"
+      "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3_turbo"
     },
     {
       "id": "whisperkit-distil-large-v3",
@@ -46,9 +50,10 @@
       "description": "Version distillée du large. Rapide et précis, consomme moins de ressources.",
       "providerType": "whisperKit",
       "whisperKitVariant": "distil-large-v3",
+      "modelName": "distil-whisper_distil-large-v3",
       "fileSize": "~1.5 GB",
       "language": "Multilingue (FR, EN, ...)",
-      "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-distil-large-v3"
+      "infoURL": "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/distil-whisper_distil-large-v3"
     },
     {
       "id": "parakeet-tdt-0.6b-v3",
@@ -56,6 +61,7 @@
       "description": "Modèle NVIDIA multilingue ultra-rapide. 6 fichiers CoreML (~620 MB).",
       "providerType": "coreML",
       "whisperKitVariant": null,
+      "modelName": null,
       "fileSize": "~620 MB",
       "language": "Multilingue (EN, FR, ...)",
       "infoURL": "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml"

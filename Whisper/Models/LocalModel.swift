@@ -20,6 +20,9 @@ struct LocalModel: LocalAudioModel, Hashable {
     /// Variant WhisperKit (ex: "base", "small", "large-v3-turbo") — nil pour les modèles non-WhisperKit
     let whisperKitVariant: String?
 
+    /// Nom spécifique du modèle pour WhisperKit (optionnel, permet de surcharger la convention de nommage par défaut)
+    let modelName: String?
+
     /// Langue principale ou "Multilingue"
     let language: String
 
@@ -70,8 +73,8 @@ struct LocalModel: LocalAudioModel, Hashable {
             return false
         }
 
-        let modelName = "openai_whisper-\(variant)"
-        let modelPath = modelBasePath.appendingPathComponent(modelName, isDirectory: true)
+        let folderName = modelName ?? "openai_whisper-\(variant)"
+        let modelPath = modelBasePath.appendingPathComponent(folderName, isDirectory: true)
         return FileManager.default.fileExists(atPath: modelPath.path)
     }
 
@@ -117,6 +120,7 @@ struct LocalModel: LocalAudioModel, Hashable {
         case fileSize
         case providerType
         case whisperKitVariant
+        case modelName
         case language
         case infoURL
     }
@@ -157,6 +161,7 @@ extension LocalModel {
                 fileSize: "~244 MB",
                 providerType: .whisperKit,
                 whisperKitVariant: "small",
+                modelName: nil,
                 language: "Multilingue (FR, EN, ...)",
                 infoURL: nil
             ),
@@ -167,6 +172,7 @@ extension LocalModel {
                 fileSize: "~620 MB",
                 providerType: .coreML,
                 whisperKitVariant: nil,
+                modelName: nil,
                 language: "Multilingue (EN, FR, ...)",
                 infoURL: nil
             )

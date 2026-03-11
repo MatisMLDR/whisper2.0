@@ -199,7 +199,7 @@ final class LocalModelProvider: ObservableObject {
 
         // Télécharger via WhisperKit avec le variant dynamique
         do {
-            try await WhisperKitTranscriptionProvider.shared.downloadVariant(variant)
+            try await WhisperKitTranscriptionProvider.shared.downloadVariant(variant, modelName: model.modelName)
         } catch {
             downloadErrors[model.id] = error.localizedDescription
             isDownloading[model.id] = false
@@ -290,20 +290,20 @@ final class LocalModelProvider: ObservableObject {
             return
         }
 
-        WhisperKitTranscriptionProvider.shared.setVariant(variant)
+        WhisperKitTranscriptionProvider.shared.setVariant(variant, modelName: model.modelName)
     }
 
     private func deleteWhisperKitModelFiles(_ model: LocalModel) {
         guard let variant = model.whisperKitVariant else { return }
 
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        let modelName = "openai_whisper-\(variant)"
+        let folderName = model.modelName ?? "openai_whisper-\(variant)"
         guard let modelPath = documentsDir?
             .appendingPathComponent("huggingface", isDirectory: true)
             .appendingPathComponent("models", isDirectory: true)
             .appendingPathComponent("argmaxinc", isDirectory: true)
             .appendingPathComponent("whisperkit-coreml", isDirectory: true)
-            .appendingPathComponent(modelName, isDirectory: true) else {
+            .appendingPathComponent(folderName, isDirectory: true) else {
             return
         }
 

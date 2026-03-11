@@ -13,6 +13,9 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     /// Variant actuel sélectionné (ex: "base", "small", "large-v3-turbo")
     private(set) var currentVariant: String = "small"
 
+    /// Nom du modèle spécifique (optionnel, pour surcharger la convention de nommage)
+    private(set) var currentModelName: String?
+
     private init() {}
 
     func transcribe(audioURL: URL, language: String?) async throws -> String {
@@ -66,16 +69,16 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     private var whisperKitInstance: WhisperKit?
     private var isInitializing = false
 
-    /// Initialise WhisperKit avec le variant spécifié
+    /// Initialise WhisperKit avec le variant actuellement configuré
     private func initializeWhisperKit(variant: String) async throws {
         isInitializing = true
         defer { isInitializing = false }
 
-        let modelName = "openai_whisper-\(variant)"
+        let model = currentModelName ?? "openai_whisper-\(variant)"
 
         do {
             whisperKitInstance = try await WhisperKit(
-                model: modelName,
+                model: model,
                 verbose: false,
                 download: true
             )
@@ -87,10 +90,11 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     #endif
 
     /// Change le variant utilisé pour la transcription
-    func setVariant(_ variant: String) {
-        guard variant != currentVariant else { return }
+    func setVariant(_ variant: String, modelName: String? = nil) {
+        guard variant != currentVariant || modelName != currentModelName else { return }
 
         currentVariant = variant
+        currentModelName = modelName
         #if canImport(WhisperKit)
         whisperKitInstance = nil  // Force la réinitialisation avec le nouveau modèle
         #endif
@@ -120,16 +124,16 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     }
 
     /// Vérifie si un variant est déjà téléchargé
-    func isVariantDownloaded(_ variant: String) -> Bool {
+    func isVariantDownloaded(_ variant: String, modelName: String? = nil) -> Bool {
         #if canImport(WhisperKit)
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        let modelName = "openai_whisper-\(variant)"
+        let folderName = modelName ?? "openai_whisper-\(variant)"
         guard let modelPath = documentsDir?
             .appendingPathComponent("huggingface", isDirectory: true)
             .appendingPathComponent("models", isDirectory: true)
             .appendingPathComponent("argmaxinc", isDirectory: true)
             .appendingPathComponent("whisperkit-coreml", isDirectory: true)
-            .appendingPathComponent(modelName, isDirectory: true) else { return false }
+            .appendingPathComponent(folderName, isDirectory: true) else { return false }
 
         return FileManager.default.fileExists(atPath: modelPath.path)
         #else
@@ -138,10 +142,13 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     }
 
     /// Télécharge un variant spécifique
-    func downloadVariant(_ variant: String) async throws {
+    func downloadVariant(_ variant: String, modelName: String? = nil) async throws {
         #if canImport(WhisperKit)
-        if isVariantDownloaded(variant) { return }
-        _ = try await WhisperKit.download(variant: variant)
+        if isVariantDownloaded(variant, modelName: modelName) { return }
+
+        // Si un modelName est fourni, on l'utilise pour le téléchargement
+        let downloadVariant = modelName ?? variant
+        _ = try await WhisperKit.download(variant: downloadVariant)
         #else
         throw TranscriptionError.whisperKitNotAvailable
         #endif
@@ -157,9 +164,10 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     }
 
     /// Pré-charge un variant spécifique
-    func prewarmVariant(_ variant: String) async {
+    func prewarmVariant(_ variant: String, modelName: String? = nil) async {
         #if canImport(WhisperKit)
         currentVariant = variant
+        currentModelName = modelName
         whisperKitInstance = nil
         try? await initializeWhisperKit(variant: variant)
         #endif
