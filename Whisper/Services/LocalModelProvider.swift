@@ -20,6 +20,9 @@ final class LocalModelProvider: ObservableObject {
     /// Indique si un modèle est en cours de téléchargement
     @Published var isDownloading: [String: Bool] = [:]
 
+    /// Temps restant estimé pour chaque téléchargement (ID: secondes)
+    @Published var timeRemaining: [String: TimeInterval] = [:]
+
     /// Message d'erreur si téléchargement échoue
     @Published var errorMessage: String?
 
@@ -114,6 +117,7 @@ final class LocalModelProvider: ObservableObject {
         downloadTask = nil
         isDownloading[model.id] = false
         downloadProgress[model.id] = nil
+        timeRemaining[model.id] = nil
     }
 
     /// Réessaie le téléchargement après un échec
@@ -124,8 +128,19 @@ final class LocalModelProvider: ObservableObject {
 
     /// Supprime un modèle téléchargé
     func deleteModel(_ model: LocalModel) {
+        print("🗑️ Suppression du modèle: \(model.name) (ID: \(model.id))")
+
+        // S'assurer que le modèle n'est pas en cours d'utilisation
+        if selectedModel?.id == model.id {
+            print("⚠️ Le modèle à supprimer est actuellement actif. Désélection...")
+            selectedModel = nil
+            UserDefaults.standard.removeObject(forKey: "selectedLocalModelId")
+        }
+
         switch model.providerType {
         case .whisperKit:
+            // Forcer la libération de l'instance WhisperKit si c'est celle qu'on supprime
+            WhisperKitTranscriptionProvider.shared.setVariant("", modelName: "")
             deleteWhisperKitModelFiles(model)
         case .coreML:
             ParakeetTranscriptionProvider.shared.cleanup()
@@ -134,15 +149,19 @@ final class LocalModelProvider: ObservableObject {
             break
         }
 
-        availableModels = LocalModel.allModels()
+        // Un petit délai pour laisser le système de fichiers se mettre à jour
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            print("🔄 Rafraîchissement du catalogue après suppression")
+            self.availableModels = LocalModel.allModels()
 
-        // Si le modèle supprimé était sélectionné, changer la sélection
-        if selectedModel?.id == model.id {
-            selectedModel = nil
-            if let nextModel = availableModels.first(where: { $0.isReady }) {
-                applySelection(nextModel)
-            } else {
-                UserDefaults.standard.removeObject(forKey: "selectedLocalModelId")
+            // Si on a supprimé le modèle actif, on en cherche un autre
+            if self.selectedModel == nil {
+                if let nextModel = self.availableModels.first(where: { $0.isReady }) {
+                    print("✅ Nouveau modèle sélectionné par défaut: \(nextModel.name)")
+                    self.applySelection(nextModel)
+                } else {
+                    print("ℹ️ Aucun autre modèle local prêt à l'emploi.")
+                }
             }
         }
     }
@@ -199,7 +218,16 @@ final class LocalModelProvider: ObservableObject {
 
         // Télécharger via WhisperKit avec le variant dynamique
         do {
-            try await WhisperKitTranscriptionProvider.shared.downloadVariant(variant, modelName: model.modelName)
+            let startTime = Date()
+            try await WhisperKitTranscriptionProvider.shared.downloadVariant(variant, modelName: model.modelName) { progress in
+                self.downloadProgress[model.id] = progress
+
+                let elapsed = Date().timeIntervalSince(startTime)
+                if progress > 0 {
+                    let totalEstimated = elapsed / progress
+                    self.timeRemaining[model.id] = max(0, totalEstimated - elapsed)
+                }
+            }
         } catch {
             downloadErrors[model.id] = error.localizedDescription
             isDownloading[model.id] = false
@@ -209,10 +237,12 @@ final class LocalModelProvider: ObservableObject {
 
         // Mettre à jour la progression et recharger
         downloadProgress[model.id] = 1.0
+        timeRemaining[model.id] = nil
         availableModels = LocalModel.allModels()
 
         // Vérifier si le modèle est bien téléchargé
         if let updatedModel = availableModels.first(where: { $0.id == model.id }), updatedModel.isReady {
+            SoundService.shared.playSuccessSound()
             isDownloading[model.id] = false
             restoreSelectedModel()
             saveSelectedModelId()
@@ -232,26 +262,40 @@ final class LocalModelProvider: ObservableObject {
             return
         }
 
-        // Progression pendant le téléchargement SDK
-        for progress in stride(from: 0.1, through: 0.9, by: 0.1) {
-            guard !Task.isCancelled else {
-                isDownloading[model.id] = false
-                downloadProgress[model.id] = nil
-                return
+        // Progression simulée en parallèle du téléchargement SDK (FluidAudio n'expose pas de callback de progression)
+        let startTime = Date()
+        let progressTask = Task {
+            // On simule une progression qui va jusqu'à 95% de manière fluide
+            for i in 1...100 {
+                if Task.isCancelled { break }
+
+                // Courbe de progression asymétrique : ralentit vers la fin
+                let progress = 0.95 * (1.0 - exp(-Double(i) / 15.0))
+                self.downloadProgress[model.id] = progress
+
+                let elapsed = Date().timeIntervalSince(startTime)
+                if progress > 0.05 {
+                    let totalEstimated = elapsed / progress
+                    self.timeRemaining[model.id] = max(1, totalEstimated - elapsed)
+                }
+
+                // Mise à jour toutes les 200ms pour une barre très fluide
+                try? await Task.sleep(nanoseconds: 200_000_000)
             }
-            downloadProgress[model.id] = progress
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
         }
 
-        // Télécharger via FluidAudio SDK
+        // Télécharger via FluidAudio SDK (opération bloquante/longue)
         await ParakeetTranscriptionProvider.shared.prewarm()
+        progressTask.cancel()
 
         // Recharger la liste pour rafraîchir isReady
         availableModels = LocalModel.allModels()
 
         // Vérifier si le modèle est bien téléchargé (depuis la liste actualisée)
         if let updatedModel = availableModels.first(where: { $0.id == model.id }), updatedModel.isReady {
+            SoundService.shared.playSuccessSound()
             downloadProgress[model.id] = 1.0
+            timeRemaining[model.id] = nil
             isDownloading[model.id] = false
             restoreSelectedModel()
             saveSelectedModelId()
@@ -259,6 +303,7 @@ final class LocalModelProvider: ObservableObject {
             downloadErrors[model.id] = "Le téléchargement a échoué"
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
+            timeRemaining[model.id] = nil
         }
     }
 
@@ -294,7 +339,10 @@ final class LocalModelProvider: ObservableObject {
     }
 
     private func deleteWhisperKitModelFiles(_ model: LocalModel) {
-        guard let variant = model.whisperKitVariant else { return }
+        guard let variant = model.whisperKitVariant else {
+            print("❌ Impossible de supprimer: variant WhisperKit manquant")
+            return
+        }
 
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         let folderName = model.modelName ?? "openai_whisper-\(variant)"
@@ -304,22 +352,44 @@ final class LocalModelProvider: ObservableObject {
             .appendingPathComponent("argmaxinc", isDirectory: true)
             .appendingPathComponent("whisperkit-coreml", isDirectory: true)
             .appendingPathComponent(folderName, isDirectory: true) else {
+            print("❌ Chemin des modèles WhisperKit introuvable")
             return
         }
 
-        try? FileManager.default.removeItem(at: modelPath)
+        if FileManager.default.fileExists(atPath: modelPath.path) {
+            do {
+                try FileManager.default.removeItem(at: modelPath)
+                print("✅ Fichiers WhisperKit supprimés: \(modelPath.lastPathComponent)")
+            } catch {
+                print("❌ Erreur lors de la suppression des fichiers WhisperKit: \(error.localizedDescription)")
+            }
+        } else {
+            print("ℹ️ Aucun fichier trouvé au chemin: \(modelPath.path)")
+        }
     }
 
     private func deleteCoreMLModelFiles() {
         guard let modelsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("FluidAudio", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true),
-              let items = try? FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil) else {
+            .appendingPathComponent("Models", isDirectory: true) else {
+            print("❌ Répertoire FluidAudio introuvable")
             return
         }
 
-        for item in items where item.lastPathComponent.localizedCaseInsensitiveContains("parakeet") {
-            try? FileManager.default.removeItem(at: item)
+        do {
+            let items = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
+            let parakeetModels = items.filter { $0.lastPathComponent.localizedCaseInsensitiveContains("parakeet") }
+
+            if parakeetModels.isEmpty {
+                print("ℹ️ Aucun modèle Parakeet trouvé dans \(modelsDirectory.path)")
+            }
+
+            for item in parakeetModels {
+                try FileManager.default.removeItem(at: item)
+                print("✅ Modèle CoreML supprimé: \(item.lastPathComponent)")
+            }
+        } catch {
+            print("❌ Erreur lors de la lecture ou suppression des modèles CoreML: \(error.localizedDescription)")
         }
     }
 }

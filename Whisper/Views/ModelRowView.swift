@@ -5,6 +5,7 @@ struct ModelRowView: View {
     let isSelected: Bool
     let isDownloading: Bool
     let downloadProgress: Double
+    let timeRemaining: TimeInterval?
     let errorMessage: String?
 
     let onSelect: () -> Void
@@ -78,12 +79,19 @@ struct ModelRowView: View {
     @ViewBuilder
     private var actionArea: some View {
         if isDownloading {
-            VStack(alignment: .trailing, spacing: 8) {
+            VStack(alignment: .trailing, spacing: 6) {
                 ProgressView(value: max(0.08, downloadProgress))
                     .frame(width: 120)
 
+                if let time = timeRemaining, time > 0 {
+                    Text(formatTimeRemaining(time))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
                 Button("Annuler", action: onCancel)
                     .buttonStyle(.borderless)
+                    .font(.caption)
             }
         } else if let errorMessage {
             VStack(alignment: .trailing, spacing: 8) {
@@ -136,6 +144,16 @@ struct ModelRowView: View {
 
         return isSelected ? .accentColor : .secondary
     }
+
+    private func formatTimeRemaining(_ seconds: TimeInterval) -> String {
+        if seconds < 60 {
+            return "Environ \(Int(seconds))s restantes"
+        } else {
+            let mins = Int(seconds / 60)
+            let secs = Int(seconds.truncatingRemainder(dividingBy: 60))
+            return "Environ \(mins)m \(secs)s restantes"
+        }
+    }
 }
 
 private struct ModelBadge: View {
@@ -159,6 +177,7 @@ private struct ModelBadge: View {
             isSelected: false,
             isDownloading: false,
             downloadProgress: 0,
+            timeRemaining: nil,
             errorMessage: nil,
             onSelect: {},
             onDownload: {},

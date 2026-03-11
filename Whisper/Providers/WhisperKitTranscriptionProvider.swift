@@ -142,13 +142,20 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
     }
 
     /// Télécharge un variant spécifique
-    func downloadVariant(_ variant: String, modelName: String? = nil) async throws {
+    func downloadVariant(_ variant: String, modelName: String? = nil, progress: ((Double) -> Void)? = nil) async throws {
         #if canImport(WhisperKit)
-        if isVariantDownloaded(variant, modelName: modelName) { return }
+        if isVariantDownloaded(variant, modelName: modelName) {
+            progress?(1.0)
+            return
+        }
 
         // Si un modelName est fourni, on l'utilise pour le téléchargement
         let downloadVariant = modelName ?? variant
-        _ = try await WhisperKit.download(variant: downloadVariant)
+        _ = try await WhisperKit.download(variant: downloadVariant, progressCallback: { progressValue in
+            DispatchQueue.main.async {
+                progress?(progressValue.fractionCompleted)
+            }
+        })
         #else
         throw TranscriptionError.whisperKitNotAvailable
         #endif

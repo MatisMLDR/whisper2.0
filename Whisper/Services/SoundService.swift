@@ -15,4 +15,8 @@ final class SoundService {
     func playErrorSound() {
         NSSound(named: "Basso")?.play()
     }
+
+    func playSuccessSound() {
+        NSSound(named: "Glass")?.play()
+    }
 }

@@ -17,10 +17,10 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-            
+
             Divider()
                 .ignoresSafeArea()
-            
+
             mainContent
         }
         .frame(minWidth: 750, idealWidth: 750, maxWidth: 750, minHeight: 450, idealHeight: 450, maxHeight: .infinity)
@@ -42,7 +42,7 @@ struct SettingsView: View {
         VStack(alignment: isSidebarCollapsed ? .center : .leading, spacing: 0) {
             // Window controls spacing
             Color.clear.frame(height: 22)
-            
+
             ScrollView {
                 VStack(spacing: 6) {
                     ForEach(SettingsPane.allCases) { pane in
@@ -54,9 +54,9 @@ struct SettingsView: View {
                 .padding(.horizontal, isSidebarCollapsed ? 8 : 12)
                 .padding(.vertical, 8)
             }
-            
+
             Spacer()
-            
+
             // Pill at bottom (or just icon if collapsed)
             Button(action: {}) {
                 if isSidebarCollapsed {
@@ -74,7 +74,7 @@ struct SettingsView: View {
                         Text("Whisper")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.primary)
-                        
+
                         Text(appVersion)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.primary.opacity(0.7))
@@ -99,7 +99,7 @@ struct SettingsView: View {
         }
         .frame(width: isSidebarCollapsed ? 68 : 240)
         // A slightly darker background for the sidebar
-        .background(Color.black.opacity(0.15)) 
+        .background(Color.black.opacity(0.15))
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarCollapsed)
     }
 
@@ -126,7 +126,7 @@ struct SettingsView: View {
                     Text(appState.selectedMicrophoneSummary)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
-                    
+
                     Image(systemName: "headphones") // or mic
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
@@ -134,7 +134,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 24)
             .frame(height: 22)
-            
+
             Divider()
 
             ScrollView {
@@ -144,7 +144,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(currentPane.title)
                                 .font(.system(size: 20, weight: .bold))
-                            
+
                             if !currentPane.subtitle.isEmpty {
                                 Text(currentPane.subtitle)
                                     .font(.system(size: 14))
@@ -153,9 +153,9 @@ struct SettingsView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        
+
                         Spacer()
-                        
+
                         // Optional primary action button based on pane
                         if currentPane == .profiles {
                             Button {
@@ -198,7 +198,7 @@ struct SettingsView: View {
                     }
 
                     paneContent
-                    
+
                     Spacer().frame(height: 40)
                 }
                 .padding(32)
@@ -279,7 +279,7 @@ struct SettingsView: View {
                     ) {
                         appState.setActiveProfile(id: profile.id)
                     }
-                    
+
                     if index < appState.profiles.count - 1 {
                         SettingsDivider()
                     }
@@ -327,7 +327,7 @@ struct SettingsView: View {
                         }
 
                         SettingsDivider()
-                        
+
                         SettingsEntryRow(label: "Langue") {
                             Picker("", selection: activeProfileLanguageBinding(activeProfile.id)) {
                                 Text("Automatique").tag(Optional<String>.none)
@@ -416,7 +416,7 @@ struct SettingsView: View {
                         ShortcutKeyView(label: appState.recordingShortcut.displayString, subLabel: appState.recordingMode == .toggle ? "Basculer" : "Maintenir")
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(appState.recordingMode == .toggle 
+                            Text(appState.recordingMode == .toggle
                                  ? "Appuie sur \(appState.recordingShortcut.displayString) pour dicter, puis ré-appuie pour transcrire. L'enregistrement utilise le profil IA sélectionné."
                                  : "Maintiens \(appState.recordingShortcut.displayString) pour dicter. Le profil actif détermine l’IA utilisée au moment où tu relâches la touche.")
                                 .font(.system(size: 14))
@@ -436,7 +436,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var transcriptionPane: some View {
         VStack(alignment: .leading, spacing: 24) {
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 Text("Enregistrement & Raccourci")
                     .font(.system(size: 14, weight: .semibold))
@@ -482,7 +482,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 Text("Clé API Globale")
                     .font(.system(size: 14, weight: .semibold))
@@ -575,6 +575,7 @@ struct SettingsView: View {
                         isSelected: appState.activeProfile?.selectedLocalModelId == model.id,
                         isDownloading: appState.localModelProvider.isDownloading[model.id] ?? false,
                         downloadProgress: appState.localModelProvider.downloadProgress[model.id] ?? 0,
+                        timeRemaining: appState.localModelProvider.timeRemaining[model.id],
                         errorMessage: appState.localModelProvider.downloadErrors[model.id]
                     ) {
                         guard let activeProfileId = appState.activeProfileId else { return }
@@ -845,7 +846,7 @@ private struct SidebarItem: View {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(pane.iconColor)
                         .frame(width: 24, height: 24)
-                    
+
                     Image(systemName: pane.iconName)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
@@ -855,7 +856,7 @@ private struct SidebarItem: View {
                     Text(pane.title)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(isSelected ? .white : .primary.opacity(0.8))
-                    
+
                     Spacer()
                 }
             }
@@ -987,17 +988,17 @@ private struct PermissionRow: View {
                 HStack(spacing: 8) {
                     Text(title)
                         .font(.system(size: 15, weight: .semibold))
-                    
+
                     Image(systemName: isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                         .foregroundStyle(isGranted ? .green : .orange)
                         .font(.system(size: 13))
                 }
-                
+
                 Text(message)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                
+
                 HStack(spacing: 12) {
                     Button {
                         primaryAction()
@@ -1044,17 +1045,17 @@ private struct ProfileRow: View {
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .frame(width: 20)
-                    
+
                     Text(title)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
-                    
+
                     if isActive {
                         Circle()
                             .fill(Color.green)
                             .frame(width: 6, height: 6)
                     }
-                    
+
                     Spacer()
 
                     ZStack {
@@ -1065,7 +1066,7 @@ private struct ProfileRow: View {
                                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
                             )
-                        
+
                         Image(systemName: modeType == .local ? "cpu" : "cloud.fill")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(modeType == .local ? .green : .gray)
@@ -1105,7 +1106,7 @@ private struct HistoryEntryCustomRow: View {
                     .foregroundStyle(.secondary)
 
                 Spacer()
-                
+
                 if isHovered {
                     HStack(spacing: 12) {
                         Button(action: onCopy) {
