@@ -518,22 +518,11 @@ final class AppState: ObservableObject {
         case .coreML, .generic:
             await ParakeetTranscriptionProvider.shared.prewarm()
         case .whisperKit:
-            if let whisperModel = whisperKitModel(for: model) {
-                await WhisperKitTranscriptionProvider.shared.prewarmModel(whisperModel)
+            if let variant = model.whisperKitVariant {
+                await WhisperKitTranscriptionProvider.shared.prewarmVariant(variant)
             } else {
                 await WhisperKitTranscriptionProvider.shared.prewarmModel()
             }
-        }
-    }
-
-    private func whisperKitModel(for model: LocalModel) -> WhisperKitTranscriptionProvider.WhisperModel? {
-        switch model.id {
-        case "whisperkit-base":
-            return .base
-        case "whisperkit-small":
-            return .small
-        default:
-            return nil
         }
     }
 

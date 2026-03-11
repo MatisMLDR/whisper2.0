@@ -11,14 +11,14 @@ struct LocalModel: LocalAudioModel, Hashable {
     /// Description du modèle (langues supportées, performances, etc.)
     let description: String
 
-    /// URL de téléchargement du modèle
-    let downloadURL: URL
-
     /// Taille du fichier (pour affichage, ex: "612 MB")
     let fileSize: String
 
     /// Type de provider utilisé pour ce modèle
     let providerType: ProviderType
+
+    /// Variant WhisperKit (ex: "base", "small", "large-v3-turbo") — nil pour les modèles non-WhisperKit
+    let whisperKitVariant: String?
 
     /// Langue principale ou "Multilingue"
     let language: String
@@ -33,7 +33,6 @@ struct LocalModel: LocalAudioModel, Hashable {
         case .whisperKit:
             return isWhisperKitModelDownloaded()
         case .coreML:
-            // Vérifier si les fichiers CoreML existent sur le disque dans le cache FluidAudio
             return areCoreMLModelsDownloaded()
         case .generic:
             return false
@@ -60,7 +59,8 @@ struct LocalModel: LocalAudioModel, Hashable {
 
     /// Vérifie si le modèle WhisperKit est téléchargé
     private func isWhisperKitModelDownloaded() -> Bool {
-        // WhisperKit stocke les modèles dans ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/
+        guard let variant = whisperKitVariant else { return false }
+
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         guard let modelBasePath = documentsDir?
             .appendingPathComponent("huggingface", isDirectory: true)
@@ -70,12 +70,7 @@ struct LocalModel: LocalAudioModel, Hashable {
             return false
         }
 
-        // Pour WhisperKit base/small, on vérifie si le dossier du modèle existe
-        let modelName = id == "whisperkit-base" ? "openai_whisper-base" :
-                        id == "whisperkit-small" ? "openai_whisper-small" : nil
-
-        guard let modelName = modelName else { return false }
-
+        let modelName = "openai_whisper-\(variant)"
         let modelPath = modelBasePath.appendingPathComponent(modelName, isDirectory: true)
         return FileManager.default.fileExists(atPath: modelPath.path)
     }
@@ -84,26 +79,21 @@ struct LocalModel: LocalAudioModel, Hashable {
     private func areCoreMLModelsDownloaded() -> Bool {
         guard providerType == .coreML else { return false }
 
-        // Le FluidAudio SDK stocke ses modèles dans ~/Library/Application Support/FluidAudio/Models/
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return false
         }
 
-        // Chercher le dossier du modèle Parakeet (le nom peut varier selon la version)
         let fluidAudioDir = appSupport.appendingPathComponent("FluidAudio", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
 
-        // Vérifier que le dossier FluidAudio existe
         guard FileManager.default.fileExists(atPath: fluidAudioDir.path) else {
             return false
         }
 
-        // Chercher un dossier contenant des fichiers .mlmodelc
         guard let contents = try? FileManager.default.contentsOfDirectory(at: fluidAudioDir, includingPropertiesForKeys: nil) else {
             return false
         }
 
-        // Vérifier qu'il y a un dossier parakeet avec des fichiers .mlmodelc
         for folder in contents where folder.hasDirectoryPath {
             if folder.lastPathComponent.contains("parakeet") {
                 if let modelContents = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) {
@@ -118,110 +108,73 @@ struct LocalModel: LocalAudioModel, Hashable {
         return false
     }
 
-    // MARK: - Initializer
-
-    init(
-        id: String,
-        name: String,
-        description: String,
-        downloadURL: URL,
-        fileSize: String,
-        providerType: ProviderType = .coreML,
-        language: String = "Multilingue",
-        infoURL: URL? = nil
-    ) {
-        self.id = id
-        self.name = name
-        self.description = description
-        self.downloadURL = downloadURL
-        self.fileSize = fileSize
-        self.providerType = providerType
-        self.language = language
-        self.infoURL = infoURL
-    }
-
     // MARK: - Codable
 
     enum CodingKeys: String, CodingKey {
         case id
         case name
         case description
-        case downloadURL
         case fileSize
         case providerType
+        case whisperKitVariant
         case language
         case infoURL
     }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        description = try container.decode(String.self, forKey: .description)
-        downloadURL = try container.decode(URL.self, forKey: .downloadURL)
-        fileSize = try container.decode(String.self, forKey: .fileSize)
-        providerType = try container.decodeIfPresent(ProviderType.self, forKey: .providerType) ?? .coreML
-        language = try container.decodeIfPresent(String.self, forKey: .language) ?? "Multilingue"
-        infoURL = try container.decodeIfPresent(URL.self, forKey: .infoURL)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encode(description, forKey: .description)
-        try container.encode(downloadURL, forKey: .downloadURL)
-        try container.encode(fileSize, forKey: .fileSize)
-        try container.encode(providerType, forKey: .providerType)
-        try container.encode(language, forKey: .language)
-        try container.encodeIfPresent(infoURL, forKey: .infoURL)
-    }
 }
 
-// MARK: - Predefined Models
+// MARK: - Catalog Loading
 
 extension LocalModel {
-    /// Modèles WhisperKit disponibles
-    static func whisperKitModels() -> [LocalModel] {
+    /// Structure interne pour décoder le fichier JSON de catalogue
+    private struct ModelCatalog: Codable {
+        let models: [LocalModel]
+    }
+
+    /// Charge tous les modèles depuis le fichier ModelCatalog.json bundlé dans l'app
+    static func loadFromCatalog() -> [LocalModel] {
+        guard let url = Bundle.main.url(forResource: "ModelCatalog", withExtension: "json") else {
+            print("⚠️ ModelCatalog.json introuvable dans le bundle")
+            return fallbackModels()
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let catalog = try JSONDecoder().decode(ModelCatalog.self, from: data)
+            return catalog.models
+        } catch {
+            print("⚠️ Erreur de décodage ModelCatalog.json: \(error)")
+            return fallbackModels()
+        }
+    }
+
+    /// Modèles de secours si le fichier JSON est introuvable
+    private static func fallbackModels() -> [LocalModel] {
         [
-            LocalModel(
-                id: "whisperkit-base",
-                name: "Whisper Base",
-                description: "Modèle rapide multilingue (FR, EN, ...). Idéal pour l'usage quotidien.",
-                downloadURL: URL(string: "https://github.com/argmaxinc/WhisperKit")!,
-                fileSize: "~74 MB",
-                providerType: .whisperKit,
-                language: "Multilingue (FR, EN, ...)"
-            ),
             LocalModel(
                 id: "whisperkit-small",
                 name: "Whisper Small",
-                description: "Modèle plus précis multilingue. Un peu plus lent.",
-                downloadURL: URL(string: "https://github.com/argmaxinc/WhisperKit")!,
+                description: "Modèle multilingue avec un bon compromis vitesse/précision.",
                 fileSize: "~244 MB",
                 providerType: .whisperKit,
-                language: "Multilingue (FR, EN, ...)"
-            )
-        ]
-    }
-
-    /// Modèles CoreML disponibles (Parakeet)
-    static func coreMLModels() -> [LocalModel] {
-        [
+                whisperKitVariant: "small",
+                language: "Multilingue (FR, EN, ...)",
+                infoURL: nil
+            ),
             LocalModel(
                 id: "parakeet-tdt-0.6b-v3",
                 name: "Parakeet TDT 0.6B v3",
-                description: "Modèle NVIDIA multilingue ultra-rapide. 6 fichiers CoreML (~620 MB).",
-                downloadURL: URL(string: "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml")!,
+                description: "Modèle NVIDIA multilingue ultra-rapide.",
                 fileSize: "~620 MB",
                 providerType: .coreML,
-                language: "Multilingue (EN, FR, ...)"
+                whisperKitVariant: nil,
+                language: "Multilingue (EN, FR, ...)",
+                infoURL: nil
             )
         ]
     }
 
-    /// Tous les modèles disponibles
+    /// Tous les modèles disponibles (alias pour loadFromCatalog)
     static func allModels() -> [LocalModel] {
-        whisperKitModels() + coreMLModels()
+        loadFromCatalog()
     }
 }

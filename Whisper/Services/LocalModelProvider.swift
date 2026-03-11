@@ -8,7 +8,7 @@ final class LocalModelProvider: ObservableObject {
 
     // MARK: - Published Properties
 
-    /// Liste des modèles disponibles
+    /// Liste des modèles disponibles (chargés depuis ModelCatalog.json)
     @Published var availableModels: [LocalModel] = LocalModel.allModels()
 
     /// Modèle sélectionné pour la transcription
@@ -41,7 +41,7 @@ final class LocalModelProvider: ObservableObject {
             }
         }
 
-        // Si aucun modèle sélectionné, prendre le premier modèle téléchargé ou WhisperKit par défaut
+        // Si aucun modèle sélectionné, prendre le premier modèle téléchargé
         if selectedModel == nil {
             if let firstReady = availableModels.first(where: { $0.isReady }) {
                 applySelection(firstReady)
@@ -126,7 +126,7 @@ final class LocalModelProvider: ObservableObject {
     func deleteModel(_ model: LocalModel) {
         switch model.providerType {
         case .whisperKit:
-            try? WhisperKitTranscriptionProvider.shared.clearCache()
+            deleteWhisperKitModelFiles(model)
         case .coreML:
             ParakeetTranscriptionProvider.shared.cleanup()
             deleteCoreMLModelFiles()
@@ -174,6 +174,12 @@ final class LocalModelProvider: ObservableObject {
         }
     }
 
+    /// Recharge le catalogue depuis le JSON
+    func reloadCatalog() {
+        availableModels = LocalModel.allModels()
+        restoreSelectedModel()
+    }
+
     // MARK: - Private Methods
 
     private func downloadWhisperKitModel(_ model: LocalModel) async {
@@ -184,22 +190,16 @@ final class LocalModelProvider: ObservableObject {
             return
         }
 
-        // Déterminer le modèle WhisperKit à télécharger
-        let whisperModel: WhisperKitTranscriptionProvider.WhisperModel? =
-            model.id == "whisperkit-base" ? .base :
-            model.id == "whisperkit-small" ? .small : nil
-
-        guard let whisperModel = whisperModel else {
-            downloadErrors[model.id] = "Modèle inconnu"
+        guard let variant = model.whisperKitVariant else {
+            downloadErrors[model.id] = "Variant WhisperKit inconnu"
             isDownloading[model.id] = false
             downloadProgress[model.id] = nil
             return
         }
 
-        // Télécharger via WhisperKit (avec progression simulée en parallèle)
+        // Télécharger via WhisperKit avec le variant dynamique
         do {
-            // Lancer le téléchargement réel
-            try await WhisperKitTranscriptionProvider.shared.downloadModel(whisperModel)
+            try await WhisperKitTranscriptionProvider.shared.downloadVariant(variant)
         } catch {
             downloadErrors[model.id] = error.localizedDescription
             isDownloading[model.id] = false
@@ -286,22 +286,28 @@ final class LocalModelProvider: ObservableObject {
 
     private func configureProvider(for model: LocalModel) {
         guard model.providerType == .whisperKit,
-              let whisperModel = whisperKitModel(for: model) else {
+              let variant = model.whisperKitVariant else {
             return
         }
 
-        WhisperKitTranscriptionProvider.shared.setModel(whisperModel)
+        WhisperKitTranscriptionProvider.shared.setVariant(variant)
     }
 
-    private func whisperKitModel(for model: LocalModel) -> WhisperKitTranscriptionProvider.WhisperModel? {
-        switch model.id {
-        case "whisperkit-base":
-            return .base
-        case "whisperkit-small":
-            return .small
-        default:
-            return nil
+    private func deleteWhisperKitModelFiles(_ model: LocalModel) {
+        guard let variant = model.whisperKitVariant else { return }
+
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        let modelName = "openai_whisper-\(variant)"
+        guard let modelPath = documentsDir?
+            .appendingPathComponent("huggingface", isDirectory: true)
+            .appendingPathComponent("models", isDirectory: true)
+            .appendingPathComponent("argmaxinc", isDirectory: true)
+            .appendingPathComponent("whisperkit-coreml", isDirectory: true)
+            .appendingPathComponent(modelName, isDirectory: true) else {
+            return
         }
+
+        try? FileManager.default.removeItem(at: modelPath)
     }
 
     private func deleteCoreMLModelFiles() {

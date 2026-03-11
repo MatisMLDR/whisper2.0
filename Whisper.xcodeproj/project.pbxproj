@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		19662E5A2F618841005B1A1C /* ModelCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 19662E592F618840005B1A1C /* ModelCatalog.json */; };
 		19796D712F45CB6E006B7F28 /* MicrophoneDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */; };
 		19796D732F45CB79006B7F28 /* MicrophoneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19796D722F45CB79006B7F28 /* MicrophoneService.swift */; };
 		19796D762F45F7E1006B7F28 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 19796D752F45F7E1006B7F28 /* FluidAudio */; };
@@ -49,6 +50,7 @@
 
 /* Begin PBXFileReference section */
 		0208EE534EE89DB2D1D51D5B /* RecordingMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingMode.swift; sourceTree = "<group>"; };
+		19662E592F618840005B1A1C /* ModelCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ModelCatalog.json; sourceTree = "<group>"; };
 		19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneDevice.swift; sourceTree = "<group>"; };
 		19796D722F45CB79006B7F28 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
 		19FFB3CD2F35F81A0030D49A /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
@@ -111,6 +113,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		945421B52602EAD6E7B5C84F /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				19662E592F618840005B1A1C /* ModelCatalog.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		AAA00001E /* Whisper */ = {
 			isa = PBXGroup;
 			children = (
@@ -124,6 +134,7 @@
 				CCC000019 /* Providers */,
 				AAA00001A /* Info.plist */,
 				AAA00001B /* Whisper.entitlements */,
+				945421B52602EAD6E7B5C84F /* Resources */,
 			);
 			path = Whisper;
 			sourceTree = "<group>";
@@ -281,6 +292,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				19662E5A2F618841005B1A1C /* ModelCatalog.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
