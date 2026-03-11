@@ -398,12 +398,12 @@ struct SettingsView: View {
 
                 SettingsCard {
                     HStack(alignment: .top, spacing: 16) {
-                        ShortcutKeyView(label: appState.recordingModifier.label, subLabel: appState.recordingMode == .toggle ? "Basculer" : "Maintenir")
+                        ShortcutKeyView(label: appState.recordingShortcut.displayString, subLabel: appState.recordingMode == .toggle ? "Basculer" : "Maintenir")
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text(appState.recordingMode == .toggle 
-                                 ? "Appuie sur \(appState.recordingModifier.label) pour dicter, puis ré-appuie pour transcrire. L'enregistrement utilise le profil IA sélectionné."
-                                 : "Maintiens \(appState.recordingModifier.label) pour dicter. Le profil actif détermine l’IA utilisée au moment où tu relâches la touche.")
+                                 ? "Appuie sur \(appState.recordingShortcut.displayString) pour dicter, puis ré-appuie pour transcrire. L'enregistrement utilise le profil IA sélectionné."
+                                 : "Maintiens \(appState.recordingShortcut.displayString) pour dicter. Le profil actif détermine l’IA utilisée au moment où tu relâches la touche.")
                                 .font(.system(size: 14))
                                 .fixedSize(horizontal: false, vertical: true)
 
@@ -451,13 +451,7 @@ struct SettingsView: View {
                     SettingsDivider()
 
                     SettingsEntryRow(label: "Touche de déclenchement") {
-                        Picker("", selection: $appState.recordingModifier) {
-                            ForEach(ShortcutModifier.allCases) { modifier in
-                                Text(modifier.label).tag(modifier)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .fixedSize()
+                        ShortcutRecordingView(shortcut: $appState.recordingShortcut)
                     }
 
                     SettingsDivider()
@@ -646,9 +640,9 @@ struct SettingsView: View {
         switch appState.audioRecorder.permissionStatus {
         case .authorized:
             if appState.recordingMode == .toggle {
-                 return "Accès autorisé. Whisper peut enregistrer dès que tu appuies sur \(appState.recordingModifier.label)."
+                 return "Accès autorisé. Whisper peut enregistrer dès que tu appuies sur \(appState.recordingShortcut.displayString)."
             } else {
-                 return "Accès autorisé. Whisper peut enregistrer dès que tu maintiens \(appState.recordingModifier.label)."
+                 return "Accès autorisé. Whisper peut enregistrer dès que tu maintiens \(appState.recordingShortcut.displayString)."
             }
         case .notDetermined:
             return "Le microphone n’a pas encore été autorisé sur ce Mac."

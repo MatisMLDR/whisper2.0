@@ -10,10 +10,12 @@ final class AppState: ObservableObject {
     @Published var hasAPIKey: Bool
     @Published private(set) var hasAccessibilityPermission: Bool
 
-    @Published var recordingModifier: ShortcutModifier {
+    @Published var recordingShortcut: AppShortcut {
         didSet {
-            UserDefaults.standard.set(recordingModifier.rawValue, forKey: "recordingModifier")
-            keyboardService.modifierFlag = recordingModifier.flags
+            if let data = try? JSONEncoder().encode(recordingShortcut) {
+                UserDefaults.standard.set(data, forKey: "recordingShortcut")
+            }
+            keyboardService.shortcut = recordingShortcut
         }
     }
 
@@ -192,9 +194,9 @@ final class AppState: ObservableObject {
 
         if isRecording {
             if recordingMode == .toggle {
-                return "Appuie à nouveau sur \(recordingModifier.label) pour lancer la transcription avec \(activeProfileName)."
+                return "Appuie à nouveau sur \(recordingShortcut.displayString) pour lancer la transcription avec \(activeProfileName)."
             } else {
-                return "Relâche \(recordingModifier.label) pour lancer la transcription avec \(activeProfileName)."
+                return "Relâche \(recordingShortcut.displayString) pour lancer la transcription avec \(activeProfileName)."
             }
         }
 
@@ -207,9 +209,9 @@ final class AppState: ObservableObject {
         }
 
         if recordingMode == .toggle {
-            return "Profil actif: \(activeProfileName). Appuie sur \(recordingModifier.label), parle, puis ré-appuie pour coller le texte."
+            return "Profil actif: \(activeProfileName). Appuie sur \(recordingShortcut.displayString), parle, puis ré-appuie pour coller le texte."
         } else {
-            return "Profil actif: \(activeProfileName). Maintiens \(recordingModifier.label), parle, puis relâche pour coller le texte."
+            return "Profil actif: \(activeProfileName). Maintiens \(recordingShortcut.displayString), parle, puis relâche pour coller le texte."
         }
     }
 
@@ -249,9 +251,22 @@ final class AppState: ObservableObject {
         hasAPIKey = KeychainHelper.shared.hasAPIKey
         hasAccessibilityPermission = TextInjector.hasAccessibilityPermission()
 
-        let savedModifier = UserDefaults.standard.string(forKey: "recordingModifier") ?? ShortcutModifier.function.rawValue
-        let modifier = ShortcutModifier(rawValue: savedModifier) ?? .function
-        self.recordingModifier = modifier
+        if let data = UserDefaults.standard.data(forKey: "recordingShortcut"),
+           let shortcut = try? JSONDecoder().decode(AppShortcut.self, from: data) {
+            self.recordingShortcut = shortcut
+        } else if let savedModifier = UserDefaults.standard.string(forKey: "recordingModifier") {
+            let flags: NSEvent.ModifierFlags
+            switch savedModifier {
+            case "command": flags = .command
+            case "option": flags = .option
+            case "control": flags = .control
+            case "shift": flags = .shift
+            default: flags = .function
+            }
+            self.recordingShortcut = AppShortcut(keyCode: nil, modifiers: flags)
+        } else {
+            self.recordingShortcut = .defaultShortcut
+        }
         
         let savedMode = UserDefaults.standard.string(forKey: "recordingMode") ?? RecordingMode.pushToTalk.rawValue
         let mode = RecordingMode(rawValue: savedMode) ?? .pushToTalk
@@ -262,7 +277,7 @@ final class AppState: ObservableObject {
         syncActiveProfileConfiguration()
         refreshUIState()
 
-        keyboardService.modifierFlag = recordingModifier.flags
+        keyboardService.shortcut = recordingShortcut
         keyboardService.startMonitoring()
 
         if !hasAccessibilityPermission {

@@ -13,6 +13,7 @@
 		19796D782F45F7E1006B7F28 /* FluidAudioEspeak in Frameworks */ = {isa = PBXBuildFile; productRef = 19796D772F45F7E1006B7F28 /* FluidAudioEspeak */; };
 		19FFB3CE2F35F81A0030D49A /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19FFB3CD2F35F81A0030D49A /* CoreML.framework */; };
 		19FFB3D12F3605840030D49A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 19FFB3D02F3605840030D49A /* WhisperKit */; };
+		1C9957E2F096281823D34DD8 /* RecordingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208EE534EE89DB2D1D51D5B /* RecordingMode.swift */; };
 		311180F8FF595F3F7D6FA232 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */; };
 		959CB06BE7471FA675B046F8 /* RecordingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5CA6DAA7FA6777213128629 /* RecordingMode.swift */; };
 		AAA000001 /* WhisperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA000010 /* WhisperApp.swift */; };
@@ -28,7 +29,7 @@
 		BBB000001 /* SoundService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000010 /* SoundService.swift */; };
 		BBB000002 /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000011 /* HistoryService.swift */; };
 		BBB000003 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB000012 /* HistoryView.swift */; };
-		C8CCAF7EACF5A1F78DC93DCB /* ShortcutModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246E29BAF478C97E10623894 /* ShortcutModifier.swift */; };
+		BC558BC04803C998B2C434BB /* AppShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D39EF954BCAF5C5D9BB44E /* AppShortcut.swift */; };
 		CCC000001 /* TranscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000010 /* TranscriptionProvider.swift */; };
 		CCC000002 /* TranscriptionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000011 /* TranscriptionMode.swift */; };
 		CCC000003 /* LocalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC000012 /* LocalModel.swift */; };
@@ -39,15 +40,18 @@
 		DDD000014 /* LocalAudioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000015 /* LocalAudioModel.swift */; };
 		DDD000016 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD000017 /* LocalModelProvider.swift */; };
 		EEE000001 /* ModelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEE000010 /* ModelRowView.swift */; };
+		FDB951E8505AB9A5C0B184D9 /* ShortcutRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE663E6B057F213ACD47E4D /* ShortcutRecordingView.swift */; };
 		FFF000001 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF000010 /* Profile.swift */; };
 		FFF000002 /* ProfileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF000011 /* ProfileService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0208EE534EE89DB2D1D51D5B /* RecordingMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingMode.swift; sourceTree = "<group>"; };
 		19796D702F45CB6E006B7F28 /* MicrophoneDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneDevice.swift; sourceTree = "<group>"; };
 		19796D722F45CB79006B7F28 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
 		19FFB3CD2F35F81A0030D49A /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
-		246E29BAF478C97E10623894 /* ShortcutModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutModifier.swift; sourceTree = "<group>"; };
+		61D39EF954BCAF5C5D9BB44E /* AppShortcut.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppShortcut.swift; sourceTree = "<group>"; };
+		9FE663E6B057F213ACD47E4D /* ShortcutRecordingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutRecordingView.swift; sourceTree = "<group>"; };
 		AAA000010 /* WhisperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperApp.swift; sourceTree = "<group>"; };
 		AAA000011 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		AAA000012 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -127,6 +131,7 @@
 				AAA000013 /* SettingsView.swift */,
 				BBB000012 /* HistoryView.swift */,
 				EEE000010 /* ModelRowView.swift */,
+				9FE663E6B057F213ACD47E4D /* ShortcutRecordingView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -192,7 +197,8 @@
 				CCC000012 /* LocalModel.swift */,
 				DDD000015 /* LocalAudioModel.swift */,
 				F5CA6DAA7FA6777213128629 /* RecordingMode.swift */,
-				246E29BAF478C97E10623894 /* ShortcutModifier.swift */,
+				0208EE534EE89DB2D1D51D5B /* RecordingMode.swift */,
+				61D39EF954BCAF5C5D9BB44E /* AppShortcut.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -308,7 +314,9 @@
 				FFF000001 /* Profile.swift in Sources */,
 				311180F8FF595F3F7D6FA232 /* WindowAccessor.swift in Sources */,
 				959CB06BE7471FA675B046F8 /* RecordingMode.swift in Sources */,
-				C8CCAF7EACF5A1F78DC93DCB /* ShortcutModifier.swift in Sources */,
+				1C9957E2F096281823D34DD8 /* RecordingMode.swift in Sources */,
+				BC558BC04803C998B2C434BB /* AppShortcut.swift in Sources */,
+				FDB951E8505AB9A5C0B184D9 /* ShortcutRecordingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
