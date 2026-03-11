@@ -5,7 +5,8 @@ import Foundation
 protocol TranscriptionProvider {
     /// Transcrit un fichier audio en texte
     /// - Parameter audioURL: URL du fichier audio à transcrire
+    /// - Parameter language: Langue cible optionnelle (code ISO, ex: "fr", "en")
     /// - Returns: Le texte transcrit
     /// - Throws: Une erreur si la transcription échoue
-    func transcribe(audioURL: URL) async throws -> String
+    func transcribe(audioURL: URL, language: String?) async throws -> String
 }

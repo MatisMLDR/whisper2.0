@@ -382,6 +382,14 @@ final class AppState: ObservableObject {
         }
     }
 
+    func updateProfileLanguage(_ language: String?, for profileID: UUID) {
+        profileService.updateLanguage(language, for: profileID)
+        if profileID == activeProfileId {
+            lastError = nil
+            syncActiveProfileConfiguration()
+        }
+    }
+
     func updateAPIKey(_ key: String) async -> Bool {
         let isValid = await OpenAITranscriptionProvider.shared.validateAPIKey(key)
         await MainActor.run {
@@ -577,7 +585,7 @@ final class AppState: ObservableObject {
 
         Task {
             do {
-                let text = try await currentProvider.transcribe(audioURL: audioURL)
+                let text = try await currentProvider.transcribe(audioURL: audioURL, language: activeProfile?.language)
 
                 await MainActor.run {
                     historyService.add(text)

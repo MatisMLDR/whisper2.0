@@ -325,6 +325,21 @@ struct SettingsView: View {
                                 .fixedSize()
                             }
                         }
+
+                        SettingsDivider()
+                        
+                        SettingsEntryRow(label: "Langue") {
+                            Picker("", selection: activeProfileLanguageBinding(activeProfile.id)) {
+                                Text("Automatique").tag(Optional<String>.none)
+                                Text("Français").tag(Optional("fr"))
+                                Text("Anglais").tag(Optional("en"))
+                                Text("Espagnol").tag(Optional("es"))
+                                Text("Allemand").tag(Optional("de"))
+                                Text("Italien").tag(Optional("it"))
+                            }
+                            .pickerStyle(.menu)
+                            .fixedSize()
+                        }
                     }
 
                     if activeProfile.transcriptionMode == .local, let currentModeConfigurationIssue = appState.currentModeConfigurationIssue {
@@ -707,6 +722,13 @@ struct SettingsView: View {
         Binding(
             get: { appState.profileService.profile(with: profileID)?.selectedLocalModelId },
             set: { appState.updateProfileLocalModel($0, for: profileID) }
+        )
+    }
+
+    private func activeProfileLanguageBinding(_ profileID: UUID) -> Binding<String?> {
+        Binding(
+            get: { appState.profileService.profile(with: profileID)?.language },
+            set: { appState.updateProfileLanguage($0, for: profileID) }
         )
     }
 

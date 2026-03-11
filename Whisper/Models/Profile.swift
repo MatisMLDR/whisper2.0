@@ -5,6 +5,7 @@ struct Profile: Identifiable, Codable, Equatable {
     var name: String
     var transcriptionMode: TranscriptionMode
     var selectedLocalModelId: String?
+    var language: String?
     let createdAt: Date
     var updatedAt: Date
 
@@ -13,6 +14,7 @@ struct Profile: Identifiable, Codable, Equatable {
         name: String,
         transcriptionMode: TranscriptionMode,
         selectedLocalModelId: String? = nil,
+        language: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -20,6 +22,7 @@ struct Profile: Identifiable, Codable, Equatable {
         self.name = name
         self.transcriptionMode = transcriptionMode
         self.selectedLocalModelId = selectedLocalModelId
+        self.language = language
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

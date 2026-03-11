@@ -74,6 +74,12 @@ final class ProfileService: ObservableObject {
         }
     }
 
+    func updateLanguage(_ language: String?, for profileID: UUID) {
+        updateProfile(id: profileID) { profile in
+            profile.language = language
+        }
+    }
+
     func deleteProfile(id: UUID) {
         guard profiles.count > 1 else { return }
         guard let index = profiles.firstIndex(where: { $0.id == id }) else { return }

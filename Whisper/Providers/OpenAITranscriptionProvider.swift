@@ -7,7 +7,7 @@ final class OpenAITranscriptionProvider: TranscriptionProvider {
 
     // MARK: - TranscriptionProvider
 
-    func transcribe(audioURL: URL) async throws -> String {
+    func transcribe(audioURL: URL, language: String?) async throws -> String {
         guard let apiKey = KeychainHelper.shared.getAPIKey() else {
             throw TranscriptionError.noAPIKey
         }
@@ -38,10 +38,10 @@ final class OpenAITranscriptionProvider: TranscriptionProvider {
         body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
         body.append("\(Constants.openAIModel)\r\n".data(using: .utf8)!)
 
-        // Ajouter la langue (français)
+        // Ajouter la langue
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n".data(using: .utf8)!)
-        body.append("fr\r\n".data(using: .utf8)!)
+        body.append("\(language ?? "fr")\r\n".data(using: .utf8)!)
 
         // Ajouter le prompt avec des mots-clés techniques pour améliorer la reconnaissance
         // NOTE: Le prompt doit être une LISTE DE MOTS, pas des instructions!

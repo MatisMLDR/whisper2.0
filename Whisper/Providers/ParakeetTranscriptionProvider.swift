@@ -21,7 +21,7 @@ final class ParakeetTranscriptionProvider: TranscriptionProvider {
 
     private init() {}
 
-    func transcribe(audioURL: URL) async throws -> String {
+    func transcribe(audioURL: URL, language: String?) async throws -> String {
         #if canImport(FluidAudio)
         // Initialiser l'ASR si pas déjà fait
         if asrManager == nil && !isInitializing {

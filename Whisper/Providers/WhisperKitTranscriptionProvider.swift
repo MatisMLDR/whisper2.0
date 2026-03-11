@@ -46,7 +46,7 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
 
     private init() {}
 
-    func transcribe(audioURL: URL) async throws -> String {
+    func transcribe(audioURL: URL, language: String?) async throws -> String {
         #if canImport(WhisperKit)
         // Initialiser WhisperKit si pas déjà fait
         if whisperKitInstance == nil && !isInitializing {
@@ -63,12 +63,12 @@ final class WhisperKitTranscriptionProvider: TranscriptionProvider {
         }
 
         // Transcrire avec les paramètres par défaut
-        let language = currentModel.rawValue.contains(".en") ? "en" : "fr"
+        let decodeLanguage = language ?? (currentModel.rawValue.contains(".en") ? "en" : "fr")
         let results = try await whisperKitInstance.transcribe(
             audioPath: audioURL.path,
             decodeOptions: DecodingOptions(
                 task: .transcribe,
-                language: language,
+                language: decodeLanguage,
                 temperatureFallbackCount: 0,
                 sampleLength: 224,
                 usePrefillPrompt: true,
