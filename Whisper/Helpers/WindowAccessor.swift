@@ -10,6 +10,11 @@ struct WindowAccessor: NSViewRepresentable {
                 window.backgroundColor = .clear
                 // Also setting the titlebar transparent to let the material shine through
                 window.titlebarAppearsTransparent = true
+                
+                // Make the window behave like a classic window (not always on screen/top)
+                // and appear in Mission Control (Space manager)
+                window.level = .normal
+                window.collectionBehavior = [.managed, .participatesInCycle, .fullScreenAuxiliary]
             }
         }
         return view
