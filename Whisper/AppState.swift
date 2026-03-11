@@ -31,6 +31,7 @@ final class AppState: ObservableObject {
     let keyboardService = KeyboardService()
     let historyService = HistoryService.shared
     let microphoneService = MicrophoneService.shared
+    let overlayWindow = RecordingOverlayWindow()
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -487,6 +488,12 @@ final class AppState: ObservableObject {
                 }
             }
         }
+
+        keyboardService.onEscapePressed = { [weak self] in
+            Task { @MainActor in
+                self?.cancelRecording()
+            }
+        }
     }
 
     private func syncActiveProfileConfiguration() {
@@ -537,10 +544,21 @@ final class AppState: ObservableObject {
             isRecording = true
             lastError = nil
             SoundService.shared.playStartSound()
+            overlayWindow.show(appState: self)
         } catch {
             lastError = error.localizedDescription
             SoundService.shared.playErrorSound()
         }
+    }
+
+    func cancelRecording() {
+        guard isRecording else { return }
+
+        _ = audioRecorder.stopRecording()
+        isRecording = false
+        audioRecorder.cleanup()
+        overlayWindow.hide()
+        SoundService.shared.playErrorSound()
     }
 
     private func stopRecordingAndTranscribe() {
@@ -565,12 +583,14 @@ final class AppState: ObservableObject {
                     historyService.add(text)
                     TextInjector.shared.inject(text: text)
                     isTranscribing = false
+                    overlayWindow.hide()
                 }
             } catch {
                 await MainActor.run {
                     lastError = error.localizedDescription
                     isTranscribing = false
                     SoundService.shared.playErrorSound()
+                    overlayWindow.hide()
                 }
             }
 

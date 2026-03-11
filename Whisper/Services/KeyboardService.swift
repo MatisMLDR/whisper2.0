@@ -17,6 +17,8 @@ final class KeyboardService: ObservableObject {
     var onModifierPressed: (() -> Void)?
     /// Appelé quand le raccourci configuré est relâché (fin enregistrement)
     var onModifierReleased: (() -> Void)?
+    /// Appelé quand la touche Échap est pressée (annuler enregistrement)
+    var onEscapePressed: (() -> Void)?
 
     func startMonitoring() {
         guard !isMonitoring else { return }
@@ -52,6 +54,13 @@ final class KeyboardService: ObservableObject {
 
     private func handleEvent(_ event: NSEvent) {
         if event.type == .keyDown || event.type == .systemDefined {
+            // Détecter la touche Échap (keyCode 53)
+            if event.type == .keyDown && event.keyCode == 53 {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onEscapePressed?()
+                }
+                return
+            }
             pressedKeyCodes.insert(event.keyCode)
         } else if event.type == .keyUp {
             pressedKeyCodes.remove(event.keyCode)

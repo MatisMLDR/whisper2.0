@@ -14,9 +14,17 @@ final class AudioRecorder: NSObject, ObservableObject {
     @Published private(set) var hasPermission = false
     @Published private(set) var permissionStatus: PermissionStatus = .notDetermined
 
+    /// Niveau audio normalisé (0…1) mis à jour ~30 fps
+    @Published private(set) var audioLevel: Float = 0
+
+    /// Historique des niveaux audio pour la waveform (buffer circulaire, ~40 valeurs)
+    @Published private(set) var audioLevelHistory: [Float] = Array(repeating: 0, count: 40)
+
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
     private let microphoneService = MicrophoneService.shared
+    private var meteringTimer: Timer?
+    private static let historySize = 40
 
     override init() {
         super.init()
@@ -72,12 +80,17 @@ final class AudioRecorder: NSObject, ObservableObject {
         ]
 
         audioRecorder = try AVAudioRecorder(url: url, settings: settings)
+        audioRecorder?.isMeteringEnabled = true
         audioRecorder?.delegate = self
         audioRecorder?.record()
         isRecording = true
+
+        startMeteringTimer()
     }
 
     func stopRecording() -> URL? {
+        stopMeteringTimer()
+
         audioRecorder?.stop()
         isRecording = false
 
@@ -91,6 +104,45 @@ final class AudioRecorder: NSObject, ObservableObject {
         if let url = recordingURL {
             try? FileManager.default.removeItem(at: url)
             recordingURL = nil
+        }
+    }
+
+    // MARK: - Metering
+
+    private func startMeteringTimer() {
+        audioLevel = 0
+        audioLevelHistory = Array(repeating: 0, count: Self.historySize)
+
+        meteringTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateMetering()
+            }
+        }
+    }
+
+    private func stopMeteringTimer() {
+        meteringTimer?.invalidate()
+        meteringTimer = nil
+        audioLevel = 0
+        audioLevelHistory = Array(repeating: 0, count: Self.historySize)
+    }
+
+    private func updateMetering() {
+        guard let recorder = audioRecorder, recorder.isRecording else { return }
+
+        recorder.updateMeters()
+        let dB = recorder.averagePower(forChannel: 0) // -160…0 dB
+
+        // Normaliser dB en 0…1 (on considère -50 dB comme le silence)
+        let minDB: Float = -50.0
+        let normalized = max(0, min(1, (dB - minDB) / (-minDB)))
+
+        audioLevel = normalized
+
+        // Ajouter dans l'historique (buffer circulaire)
+        audioLevelHistory.append(normalized)
+        if audioLevelHistory.count > Self.historySize {
+            audioLevelHistory.removeFirst()
         }
     }
 

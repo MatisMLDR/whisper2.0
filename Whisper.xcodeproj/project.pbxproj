@@ -43,6 +43,8 @@
 		FDB951E8505AB9A5C0B184D9 /* ShortcutRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE663E6B057F213ACD47E4D /* ShortcutRecordingView.swift */; };
 		FFF000001 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF000010 /* Profile.swift */; };
 		FFF000002 /* ProfileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF000011 /* ProfileService.swift */; };
+		GGG000001 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = GGG000010 /* RecordingOverlayView.swift */; };
+		GGG000002 /* RecordingOverlayWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = GGG000011 /* RecordingOverlayWindow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -82,6 +84,8 @@
 		F5CA6DAA7FA6777213128629 /* RecordingMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingMode.swift; sourceTree = "<group>"; };
 		FFF000010 /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
 		FFF000011 /* ProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileService.swift; sourceTree = "<group>"; };
+		GGG000010 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
+		GGG000011 /* RecordingOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayWindow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +136,7 @@
 				BBB000012 /* HistoryView.swift */,
 				EEE000010 /* ModelRowView.swift */,
 				9FE663E6B057F213ACD47E4D /* ShortcutRecordingView.swift */,
+				GGG000010 /* RecordingOverlayView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -159,6 +164,7 @@
 				AAA000018 /* KeychainHelper.swift */,
 				AAA000019 /* Constants.swift */,
 				F129A346A652EF3CD3D851A2 /* WindowAccessor.swift */,
+				GGG000011 /* RecordingOverlayWindow.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -317,6 +323,8 @@
 				1C9957E2F096281823D34DD8 /* RecordingMode.swift in Sources */,
 				BC558BC04803C998B2C434BB /* AppShortcut.swift in Sources */,
 				FDB951E8505AB9A5C0B184D9 /* ShortcutRecordingView.swift in Sources */,
+				GGG000001 /* RecordingOverlayView.swift in Sources */,
+				GGG000002 /* RecordingOverlayWindow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
